@@ -9,22 +9,27 @@ function resolveGoogleCallbackURL(): string {
   return "/auth/google/callback";
 }
 
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3001";
+
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(
     new GoogleStrategy(
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: resolveGoogleCallbackURL(),
+        callbackURL: `${BACKEND_URL}/auth/google/callback`,
       },
-      (accessToken, refreshToken, profile, done) => {
+      (_accessToken, _refreshToken, profile, done) => {
         // Return the profile so our route handler can use it
         return done(null, profile);
       }
     )
   );
+  console.log("✓ Google OAuth strategy configured");
 } else {
-  console.warn("passport-google-oauth20 is not configured due to missing GOOGLE_CLIENT_ID/SECRET");
+  console.warn(
+    "⚠ Google OAuth is NOT configured — missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET in env"
+  );
 }
 
 // Minimal serialization since we only use Passport for the initial OAuth handshake

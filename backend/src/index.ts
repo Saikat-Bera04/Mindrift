@@ -2,6 +2,8 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import session from "express-session";
+import { passport } from "./middleware/passport.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
 import { errorHandler } from "./middleware/errorHandler.js";
@@ -22,9 +24,6 @@ app.use(
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
-import session from "express-session";
-import { passport } from "./middleware/passport.js";
-
 app.use(createGeneralLimiter());
 
 app.use(

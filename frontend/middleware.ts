@@ -50,6 +50,12 @@ function hasValidToken(request: NextRequest): boolean {
 
 export default function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+
+  // Never intercept API routes (especially /api/auth/oauth-callback)
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   const authenticated = hasValidToken(request);
   const atRoot = pathname === "/";
   const atAuthPage = isAuthPage(pathname);
