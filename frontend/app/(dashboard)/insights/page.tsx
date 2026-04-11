@@ -1,7 +1,9 @@
 "use client";
 
+import { useAuth } from "@clerk/nextjs";
+import { useState, useEffect } from "react";
 import { DashboardHeader } from "@/components/dashboard/header";
-import { insights, trendData } from "@/lib/dummy-data";
+import { insights as dummyInsights, trendData } from "@/lib/dummy-data";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 import { TrendingUp, TrendingDown, AlertTriangle, Sparkles, ArrowRight } from "lucide-react";
 import { MechanicalCard } from "@/components/ui/mechanics";
@@ -19,6 +21,37 @@ const trendColors: Record<string, string> = {
 };
 
 export default function InsightsPage() {
+  const [dbInsights, setDbInsights] = useState<any[]>([]);
+  const { getToken } = useAuth();
+
+  useEffect(() => {
+    const fetchInsights = async () => {
+      try {
+        const token = await getToken();
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+        const res = await fetch(`${backendUrl}/insights`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setDbInsights(data.insights || []);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchInsights();
+  }, [getToken]);
+
+  const displayInsights = dbInsights.length > 0 ? dbInsights.map(d => ({
+    id: d.id,
+    category: (d.type || "INFO").toUpperCase(),
+    title: d.title,
+    description: d.content,
+    trend: 'positive',
+    impact: 'medium'
+  })) : dummyInsights;
+
   return (
     <>
       <DashboardHeader title="INSIGHTS CORE" subtitle="AI Pattern Analysis Active" />
@@ -105,7 +138,7 @@ export default function InsightsPage() {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {insights.map((insight) => {
+        {displayInsights.map((insight) => {
           const TrendIcon = trendIcons[insight.trend] || TrendingUp;
           return (
             <MechanicalCard key={insight.id} className="p-6 group cursor-pointer border-l-4 border-l-transparent hover:border-l-accent transition-colors" withVents>

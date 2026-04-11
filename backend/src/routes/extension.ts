@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import crypto from "crypto";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth } from "../middleware/clerk.js";
+import { processExtensionData } from "../cron.js";
 
 type PairingRecord = {
   code: string;
@@ -14,6 +15,16 @@ const pairingCodes = new Map<string, PairingRecord>();
 const TOKEN_BYTES = 32;
 
 export const extensionRouter = Router();
+
+extensionRouter.post("/trigger-cron-now", async (req: Request, res: Response) => {
+  try {
+    await processExtensionData();
+    res.json({ message: "6-hour extension data processing cycle triggered successfully." });
+  } catch (error) {
+    console.error("Error manually triggering cron:", error);
+    res.status(500).json({ error: "Failed to trigger cycle" });
+  }
+});
 
 function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");

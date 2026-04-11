@@ -13,6 +13,7 @@ import { voiceRouter } from "./routes/voice.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { clerkMiddleware } from "./middleware/clerk.js";
 import { createGeneralLimiter } from "./middleware/rateLimiter.js";
+import { startBackgroundJobs } from "./cron.js";
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? "3001", 10);
@@ -96,6 +97,7 @@ app.listen(PORT, () => {
   console.log(
     `Mindrift Backend API running on port ${PORT} (${process.env.NODE_ENV ?? "development"})`,
   );
+  startBackgroundJobs();
 });
 
 export default app;
