@@ -2,7 +2,7 @@
 
 // ─── Configuration ──────────────────────────────────────────────
 const API_BASE_URL = "http://localhost:3001";
-const SYNC_INTERVAL_MINUTES = 5;
+const SYNC_INTERVAL_MINUTES = 60;
 
 const sessionStart = Date.now();
 let activeTabId = null;
@@ -196,6 +196,15 @@ async function syncToMindrift() {
                     console.log(`Mindrift sync: ${result.inserted} inserted, ${result.duplicates} duplicates`);
                     // Clear synced events
                     chrome.storage.local.set({ pending_events: [] });
+
+                    // Trigger processing cycle immediately so Insights show up
+                    try {
+                        await fetch(`${API_BASE_URL}/extension/trigger-cron-now`, {
+                            method: "POST"
+                        });
+                    } catch (e) {
+                         console.error("Failed to trigger processing cycle:", e);
+                    }
                 } else {
                     console.error("Mindrift sync failed:", result.error);
                 }
