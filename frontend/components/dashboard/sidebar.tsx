@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   MessageCircle,
+  HeartPulse,
 } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { notifyAuthChanged } from "@/lib/jwt-auth";
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/insights", label: "Insights", icon: Lightbulb },
   { href: "/activity", label: "Activity", icon: Activity },
+  { href: "/health", label: "Health", icon: HeartPulse },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/chat", label: "Chatbot", icon: MessageCircle },
   { href: "/settings", label: "Settings", icon: Settings },
