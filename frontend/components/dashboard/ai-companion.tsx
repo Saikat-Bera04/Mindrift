@@ -2,13 +2,27 @@
 
 import { useState, useRef } from "react";
 import Image from "next/image";
-import { Mic, MicOff, X, Sparkles } from "lucide-react";
+import { Mic, MicOff, X, Sparkles, AlertCircle } from "lucide-react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
+import { useVoice } from "@/hooks/use-voice";
 
 export function AICompanion() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+  const { 
+    isRecording, 
+    isAiSpeaking, 
+    isProcessing,
+    isSupported, 
+    error, 
+    currentTranscript,
+    toggleRecording,
+    cancelSpeaking,
+    clearConversation 
+  } = useVoice({
+    languageCode: "en-IN",
+    voice: "meera",
+    onError: (err) => console.error("Voice error:", err),
+  });
   
   // Parallax character effect
   const cardRef = useRef<HTMLDivElement>(null);
@@ -32,18 +46,12 @@ export function AICompanion() {
     y.set(0);
   };
 
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
-    if (!isRecording) {
-      setTimeout(() => {
-        setIsRecording(false);
-        setIsAiSpeaking(true);
-        setTimeout(() => setIsAiSpeaking(false), 3000);
-      }, 2500);
-    } else {
-      setIsAiSpeaking(true);
-      setTimeout(() => setIsAiSpeaking(false), 3000);
+  const handleToggle = () => {
+    if (isOpen) {
+      cancelSpeaking();
+      clearConversation();
     }
+    setIsOpen(!isOpen);
   };
 
   return (
@@ -102,52 +110,74 @@ export function AICompanion() {
           
           {/* Status and Visualizer */}
           <div className="h-12 bg-panel/50 border-t border-muted-bg flex items-center justify-center gap-2">
-            {(isRecording || isAiSpeaking) && (
+            {(isRecording || isAiSpeaking || isProcessing) && (
                <div className="flex items-center gap-1">
                  {[...Array(6)].map((_, i) => (
                    <motion.div
                      key={i}
                      initial={{ height: "4px" }}
-                     animate={{ height: isAiSpeaking ? ["4px", "24px", "8px", "32px", "4px"] : ["4px", "16px", "6px", "20px", "4px"] }}
+                     animate={{ height: isAiSpeaking || isProcessing ? ["4px", "24px", "8px", "32px", "4px"] : ["4px", "16px", "6px", "20px", "4px"] }}
                      transition={{ duration: 0.4, repeat: Infinity, repeatType: "reverse", delay: i * 0.1 }}
-                     className={`w-1.5 rounded-full ${isAiSpeaking ? 'bg-accent' : 'bg-green-500'}`}
+                     className={`w-1.5 rounded-full ${isAiSpeaking || isProcessing ? 'bg-accent' : 'bg-green-500'}`}
                    />
                  ))}
                </div>
             )}
-            {!(isRecording || isAiSpeaking) && (
-              <span className="text-xs font-mono font-bold text-muted-fg uppercase tracking-widest">Standing By</span>
+            {!(isRecording || isAiSpeaking || isProcessing) && (
+              <span className="text-xs font-mono font-bold text-muted-fg uppercase tracking-widest">
+                {error ? 'Error' : 'Standing By'}
+              </span>
             )}
           </div>
+
+          {/* Transcript Display */}
+          {currentTranscript && (
+            <div className="px-4 py-2 bg-background/80 border-t border-muted-bg">
+              <p className="text-xs font-mono text-muted-fg uppercase tracking-wide mb-1">You said:</p>
+              <p className="text-sm text-foreground line-clamp-2">{currentTranscript}</p>
+            </div>
+          )}
+
+          {/* Error Display */}
+          {(error || !isSupported) && (
+            <div className="px-4 py-2 bg-red-50 border-t border-red-100 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500" />
+              <p className="text-xs text-red-600">
+                {!isSupported ? "Voice not supported" : error?.message || "Voice error"}
+              </p>
+            </div>
+          )}
 
           <div className="p-4 border-t border-[#ffffff] bg-background flex flex-col items-center justify-center gap-3 pointer-events-auto">
             <button 
               onClick={toggleRecording}
-              disabled={isAiSpeaking}
+              disabled={isAiSpeaking || isProcessing || !isSupported}
               className={`
                 relative w-16 h-16 rounded-full flex items-center justify-center shadow-floating border-2 transition-all duration-300
                 ${isRecording 
                   ? 'bg-red-500 border-red-400 text-white shadow-[0_0_20px_rgba(239,68,68,0.5)] scale-110' 
-                  : isAiSpeaking 
+                  : isAiSpeaking || isProcessing
                     ? 'bg-muted-bg border-transparent text-muted-fg opacity-50 cursor-not-allowed'
-                    : 'bg-panel border-accent text-accent hover:bg-accent hover:text-white hover:scale-105'
+                    : !isSupported
+                      ? 'bg-muted-bg border-transparent text-muted-fg opacity-50 cursor-not-allowed'
+                      : 'bg-panel border-accent text-accent hover:bg-accent hover:text-white hover:scale-105'
                 }
               `}
             >
-              {isRecording ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+              {isRecording ? <MicOff className="w-6 h-6" /> : isProcessing ? <Sparkles className="w-6 h-6 animate-pulse" /> : <Mic className="w-6 h-6" />}
               {isRecording && (
                 <div className="absolute inset-0 rounded-full border-4 border-red-500 animate-ping opacity-30"></div>
               )}
             </button>
             <p className="text-xs font-bold font-mono uppercase tracking-widest text-[#2d3436]">
-               {isAiSpeaking ? 'Aura responding' : isRecording ? 'Listening...' : 'Voice mode'}
+               {isAiSpeaking ? 'Aura responding' : isProcessing ? 'Processing...' : isRecording ? 'Listening...' : 'Voice mode'}
             </p>
           </div>
         </motion.div>
       )}
 
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         className="w-16 h-16 rounded-full bg-background border-2 border-[#ffffff] shadow-floating flex items-center justify-center text-accent transition-transform cursor-pointer hover:shadow-[0_4px_16px_rgba(255,71,87,0.4)] relative group"
         onPointerDownCapture={(e) => e.stopPropagation()} 
       >

@@ -9,6 +9,7 @@ import { insightsRouter } from "./routes/insights.js";
 import { usersRouter } from "./routes/users.js";
 import { extensionRouter } from "./routes/extension.js";
 import { activityRouter } from "./routes/activity.js";
+import { voiceRouter } from "./routes/voice.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { clerkMiddleware } from "./middleware/clerk.js";
 import { createGeneralLimiter } from "./middleware/rateLimiter.js";
@@ -21,12 +22,43 @@ app.use(helmet());
 app.use(
   cors({
     origin(origin, callback) {
-      const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:3000";
-      if (!origin || origin === frontendUrl || origin.startsWith("chrome-extension://")) {
+      // Allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin) {
         callback(null, true);
         return;
       }
 
+      // Chrome extensions always allowed
+      if (origin.startsWith("chrome-extension://")) {
+        callback(null, true);
+        return;
+      }
+
+      // Parse allowed origins from env (comma-separated) or use defaults
+      const defaultOrigins = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "https://mindrift.vercel.app",
+        "https://www.mindrift.vercel.app",
+      ];
+      
+      const envOrigins = process.env.FRONTEND_URL 
+        ? process.env.FRONTEND_URL.split(",").map(u => u.trim())
+        : [];
+      
+      const allowedOrigins = [...defaultOrigins, ...envOrigins];
+      
+      // Remove trailing slashes for comparison
+      const normalizedOrigin = origin.replace(/\/$/, "");
+      const normalizedAllowed = allowedOrigins.map(u => u.replace(/\/$/, ""));
+      
+      if (normalizedAllowed.includes(normalizedOrigin)) {
+        callback(null, true);
+        return;
+      }
+
+      console.warn(`CORS blocked origin: ${origin}`);
       callback(new Error("Not allowed by CORS"));
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -57,6 +89,7 @@ app.use("/gamification", gamificationRouter);
 app.use("/insights", insightsRouter);
 app.use("/extension", extensionRouter);
 app.use("/activity", activityRouter);
+app.use("/voice", voiceRouter);
 
 app.use(errorHandler);
 
