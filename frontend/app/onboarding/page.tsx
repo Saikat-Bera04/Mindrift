@@ -1,15 +1,59 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { notifyAuthChanged } from "@/lib/jwt-auth";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MechanicalCard, RecessedInput } from "@/components/ui/mechanics";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Activity, Briefcase, Heart, Moon, Sun, User, Stethoscope, Sparkles } from "lucide-react";
+import { Activity, Briefcase, Heart, Moon, Sun, User, Stethoscope, Sparkles, RefreshCw } from "lucide-react";
+
+/**
+ * Hook to wait for Convex auth to settle after a redirect.
+ * After sign-up, the JWT cookie is set but Convex needs time to validate it.
+ * This hook polls the auth state and provides retry capability.
+ */
+function useWaitForAuth() {
+  const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
+  const [timedOut, setTimedOut] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+
+  // Give Convex up to 12 seconds to settle auth after page load
+  useEffect(() => {
+    if (isAuthenticated) {
+      setTimedOut(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (!isAuthenticated) {
+        setTimedOut(true);
+      }
+    }, 12000);
+
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, retryCount]);
+
+  const retry = useCallback(() => {
+    setTimedOut(false);
+    setRetryCount((c) => c + 1);
+    // Fire auth-changed event to force useJwtAuth to re-fetch session
+    notifyAuthChanged();
+  }, []);
+
+  return {
+    authLoading,
+    isAuthenticated,
+    timedOut,
+    retry,
+    // Auth is "settling" when loading and not yet timed out
+    isSettling: authLoading && !isAuthenticated && !timedOut,
+  };
+}
 
 function calculateBMI(heightCm: number, weightKg: number) {
   if (!heightCm || !weightKg || heightCm <= 0) return 0;
@@ -19,7 +63,7 @@ function calculateBMI(heightCm: number, weightKg: number) {
 
 function PersonalForm() {
   const router = useRouter();
-  const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
+  const { authLoading, isAuthenticated, timedOut, retry, isSettling } = useWaitForAuth();
   const saveProfile = useMutation(api.users.mutations.saveOnboardingProfile);
   const [formData, setFormData] = useState({
     height: "", weight: "", bloodPressure: "", age: "",
@@ -36,8 +80,12 @@ function PersonalForm() {
     e.preventDefault();
     setError("");
 
-    if (authLoading || !isAuthenticated) {
-      setError("You need to be signed in before saving onboarding.");
+    if (authLoading && !isAuthenticated) {
+      setError("Authentication is still loading. Please wait a moment and try again.");
+      return;
+    }
+    if (!isAuthenticated) {
+      setError("You need to be signed in. Please go back and sign in, then return here.");
       return;
     }
 
@@ -185,12 +233,30 @@ function PersonalForm() {
              </div>
            </div>
         </div>
-        <div className="pt-8 flex justify-end">
-          <button type="submit" disabled={isLoading || authLoading || !isAuthenticated}
-             className="relative font-bold uppercase tracking-widest rounded-xl transition-all duration-150 active:translate-y-[2px] min-h-[56px] px-8 flex items-center justify-center gap-2 bg-accent text-white shadow-[4px_4px_8px_rgba(166,50,60,0.4),-4px_-4px_8px_rgba(255,100,110,0.4)] active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.2)] border border-white/20 hover:brightness-110 w-full sm:w-auto overflow-hidden disabled:opacity-50">
-            {authLoading ? "Authenticating..." : isLoading ? "Saving to Database..." : "Boot Subsystem"}
-            {!isLoading && <Sparkles className="w-5 h-5 ml-2" />}
-          </button>
+        <div className="pt-8 space-y-3">
+          {/* Auth settling indicator */}
+          {isSettling && (
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 text-xs font-bold font-mono uppercase tracking-wide flex items-center gap-2 animate-pulse">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Synchronizing authentication... Please wait
+            </div>
+          )}
+          {/* Timed out — show retry */}
+          {timedOut && !isAuthenticated && (
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 text-xs font-bold font-mono uppercase tracking-wide flex items-center justify-between">
+              <span>Authentication sync failed.</span>
+              <button type="button" onClick={retry} className="underline hover:text-red-800 flex items-center gap-1">
+                <RefreshCw className="w-3 h-3" /> Retry
+              </button>
+            </div>
+          )}
+          <div className="flex justify-end">
+            <button type="submit" disabled={isLoading || isSettling || (!isAuthenticated && !timedOut)}
+               className="relative font-bold uppercase tracking-widest rounded-xl transition-all duration-150 active:translate-y-[2px] min-h-[56px] px-8 flex items-center justify-center gap-2 bg-accent text-white shadow-[4px_4px_8px_rgba(166,50,60,0.4),-4px_-4px_8px_rgba(255,100,110,0.4)] active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.2)] border border-white/20 hover:brightness-110 w-full sm:w-auto overflow-hidden disabled:opacity-50">
+              {isSettling ? "Authenticating..." : isLoading ? "Saving to Database..." : "Boot Subsystem"}
+              {!isLoading && !isSettling && <Sparkles className="w-5 h-5 ml-2" />}
+            </button>
+          </div>
         </div>
       </MechanicalCard>
     </form>
@@ -199,7 +265,7 @@ function PersonalForm() {
 
 function ProfessionalForm() {
   const router = useRouter();
-  const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
+  const { authLoading, isAuthenticated, timedOut, retry, isSettling } = useWaitForAuth();
   const saveProfile = useMutation(api.users.mutations.saveOnboardingProfile);
   const [formData, setFormData] = useState({
     age: "", height: "", weight: "", blood_pressure: "",
@@ -227,8 +293,12 @@ function ProfessionalForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (authLoading || !isAuthenticated) {
-      setSubmitError("You need to be signed in before saving onboarding.");
+    if (authLoading && !isAuthenticated) {
+      setSubmitError("Authentication is still loading. Please wait a moment and try again.");
+      return;
+    }
+    if (!isAuthenticated) {
+      setSubmitError("You need to be signed in. Please go back and sign in, then return here.");
       return;
     }
     if (!validate()) return;
@@ -371,11 +441,29 @@ function ProfessionalForm() {
           </div>
         </div>
 
-        <div className="pt-8 border-t border-[#ffffff] flex justify-end">
-          <button type="submit" disabled={isLoading || authLoading || !isAuthenticated}
-             className="relative font-bold uppercase tracking-widest rounded-xl transition-all duration-150 active:translate-y-[2px] min-h-[56px] px-8 flex items-center justify-center gap-2 bg-accent text-white shadow-[4px_4px_8px_rgba(166,50,60,0.4),-4px_-4px_8px_rgba(255,100,110,0.4)] active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.2)] border border-white/20 hover:brightness-110 w-full sm:w-auto disabled:opacity-50">
-            {authLoading ? "Authenticating..." : isLoading ? "Executing Pipeline..." : "Commit Setup To Database"}
-          </button>
+        <div className="pt-8 border-t border-[#ffffff] space-y-3">
+          {/* Auth settling indicator */}
+          {isSettling && (
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 text-xs font-bold font-mono uppercase tracking-wide flex items-center gap-2 animate-pulse">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Synchronizing authentication... Please wait
+            </div>
+          )}
+          {/* Timed out — show retry */}
+          {timedOut && !isAuthenticated && (
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 text-xs font-bold font-mono uppercase tracking-wide flex items-center justify-between">
+              <span>Authentication sync failed.</span>
+              <button type="button" onClick={retry} className="underline hover:text-red-800 flex items-center gap-1">
+                <RefreshCw className="w-3 h-3" /> Retry
+              </button>
+            </div>
+          )}
+          <div className="flex justify-end">
+            <button type="submit" disabled={isLoading || isSettling || (!isAuthenticated && !timedOut)}
+               className="relative font-bold uppercase tracking-widest rounded-xl transition-all duration-150 active:translate-y-[2px] min-h-[56px] px-8 flex items-center justify-center gap-2 bg-accent text-white shadow-[4px_4px_8px_rgba(166,50,60,0.4),-4px_-4px_8px_rgba(255,100,110,0.4)] active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.2)] border border-white/20 hover:brightness-110 w-full sm:w-auto disabled:opacity-50">
+              {isSettling ? "Authenticating..." : isLoading ? "Executing Pipeline..." : "Commit Setup To Database"}
+            </button>
+          </div>
         </div>
       </MechanicalCard>
     </form>
