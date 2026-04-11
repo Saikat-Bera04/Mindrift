@@ -11,6 +11,42 @@ http.route({
   method: "POST",
   handler: batchIngest,
 });
+http.route({
+  path: "/pair",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const { pairingCode } = await req.json();
+    try {
+      const result = await ctx.runMutation(internal.users.mutations.pairDevice, { pairingCode });
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    } catch (e: any) {
+      return new Response(JSON.stringify({ error: e.message }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+  }),
+});
+
+// Preflight for /pair
+http.route({
+  path: "/pair",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }),
+});
 
 // ─── CORS preflight for extensions ──────────────────────────────
 http.route({

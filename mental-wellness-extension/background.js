@@ -1,4 +1,8 @@
-// background.js — Real-time browsing tracker
+// background.js — Real-time browsing tracker connected to Convex
+
+// ─── Configuration ──────────────────────────────────────────────
+const CONVEX_SITE_URL = "https://diligent-echidna-278.convex.site";
+const SYNC_INTERVAL_MINUTES = 5;
 
 const sessionStart = Date.now();
 let activeTabId = null;
@@ -14,11 +18,16 @@ function getDomain(url) {
     }
 }
 
+// ── Generate unique batch ID ──
+function generateBatchId() {
+    return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
 // ── Save accumulated time for the current active domain ──
 function flushActiveTime() {
     if (!activeDomain) return;
     const elapsed = Date.now() - activeStartTime;
-    if (elapsed < 500) return; // ignore tiny blips
+    if (elapsed < 500) return;
 
     chrome.storage.local.get(["screen_time"], (data) => {
         const screenTime = data.screen_time || {};
@@ -31,11 +40,7 @@ function flushActiveTime() {
 function startTracking(tabId) {
     chrome.tabs.get(tabId, (tab) => {
         if (chrome.runtime.lastError || !tab?.url) return;
-
-        // Flush time for previous domain
         flushActiveTime();
-
-        // Start new tracking
         activeDomain = getDomain(tab.url);
         activeTabId = tabId;
         activeStartTime = Date.now();
@@ -44,15 +49,29 @@ function startTracking(tabId) {
 
 // ── Tab switched ──
 chrome.tabs.onActivated.addListener((activeInfo) => {
-    // Count tab switch
-    chrome.storage.local.get(["tab_switches"], (data) => {
-        chrome.storage.local.set({ tab_switches: (data.tab_switches || 0) + 1 });
-    });
+    chrome.storage.local.get(["tab_switches", "pending_events"], (data) => {
+        const tabSwitches = (data.tab_switches || 0) + 1;
+        const pending = data.pending_events || [];
+        
+        // Queue tab_switch event for Convex
+        pending.push({
+            type: "tab_switch",
+            source: "chrome",
+            category: "productivity",
+            payload: { tabCount: tabSwitches },
+            timestamp: Date.now(),
+            batchId: generateBatchId()
+        });
 
+        chrome.storage.local.set({ 
+            tab_switches: tabSwitches,
+            pending_events: pending.slice(-200)
+        });
+    });
     startTracking(activeInfo.tabId);
 });
 
-// ── Tab URL changed (navigation within same tab) ──
+// ── Tab URL changed ──
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (tabId === activeTabId && changeInfo.url) {
         startTracking(tabId);
@@ -62,29 +81,42 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // ── Window focus changed ──
 chrome.windows.onFocusChanged.addListener((windowId) => {
     if (windowId === chrome.windows.WINDOW_ID_NONE) {
-        // Browser lost focus — flush and stop
         flushActiveTime();
         activeDomain = null;
     } else {
-        // Browser regained focus — find active tab
         chrome.tabs.query({ active: true, windowId }, (tabs) => {
             if (tabs[0]) startTracking(tabs[0].id);
         });
     }
 });
 
-// ── Idle detection (triggers after 60s of inactivity) ──
+// ── Idle detection ──
 chrome.idle.setDetectionInterval(60);
 
 chrome.idle.onStateChanged.addListener((state) => {
-    chrome.storage.local.get(["idle_log"], (data) => {
+    chrome.storage.local.get(["idle_log", "pending_events"], (data) => {
         const idleLog = data.idle_log || [];
+        const pending = data.pending_events || [];
+
         idleLog.push({
-            state: state, // "active", "idle", or "locked"
+            state: state,
             timestamp: new Date().toISOString()
         });
-        // Keep last 200 entries
-        chrome.storage.local.set({ idle_log: idleLog.slice(-200) });
+
+        if (state === "idle" || state === "locked") {
+            pending.push({
+                type: "idle_detected",
+                source: "chrome",
+                payload: { hourBucket: new Date().getHours() },
+                timestamp: Date.now(),
+                batchId: generateBatchId()
+            });
+        }
+
+        chrome.storage.local.set({ 
+            idle_log: idleLog.slice(-200),
+            pending_events: pending.slice(-200) 
+        });
     });
 
     if (state === "idle" || state === "locked") {
@@ -97,20 +129,88 @@ chrome.idle.onStateChanged.addListener((state) => {
     }
 });
 
-// ── Periodic flush every 30 seconds (so data stays fresh) ──
+// ── Periodic flush every 30 seconds ──
 chrome.alarms.create("periodic_flush", { periodInMinutes: 0.5 });
+
+// ── Sync to Convex every N minutes ──
+chrome.alarms.create("convex_sync", { periodInMinutes: SYNC_INTERVAL_MINUTES });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === "periodic_flush") {
         flushActiveTime();
-        activeStartTime = Date.now(); // restart timer
+        activeStartTime = Date.now();
+    }
+    if (alarm.name === "convex_sync") {
+        syncToConvex();
     }
 });
 
-// ── Flush to backend (logs to console for now — replace URL when ready) ──
+// ── Sync pending events to Convex backend ──
+async function syncToConvex() {
+    return new Promise((resolve) => {
+        chrome.storage.local.get(["pending_events", "convex_auth_token", "screen_time"], async (data) => {
+            const pending = data.pending_events || [];
+            const token = data.convex_auth_token;
+
+            if (!token) {
+                console.log("⚠️ No auth token — skipping Convex sync. Pair extension first.");
+                resolve();
+                return;
+            }
+
+            if (pending.length === 0) {
+                console.log("✓ No pending events to sync.");
+                resolve();
+                return;
+            }
+
+            // Also create a session_end event with screen time summary
+            const screenTime = data.screen_time || {};
+            const totalMinutes = Math.round(Object.values(screenTime).reduce((a, b) => a + b, 0) / 60000);
+            
+            const eventsToSend = [
+                ...pending,
+                {
+                    type: "session_end",
+                    source: "chrome",
+                    category: "productivity",
+                    payload: { durationMinutes: totalMinutes },
+                    timestamp: Date.now(),
+                    batchId: generateBatchId()
+                }
+            ].slice(0, 100); // Max 100 per batch
+
+            try {
+                const response = await fetch(`${CONVEX_SITE_URL}/events/batch`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ events: eventsToSend })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    console.log(`✅ Convex sync: ${result.inserted} inserted, ${result.duplicates} duplicates`);
+                    // Clear synced events
+                    chrome.storage.local.set({ pending_events: [] });
+                } else {
+                    console.error("❌ Convex sync failed:", result.error);
+                }
+            } catch (err) {
+                console.error("❌ Convex sync network error:", err.message);
+            }
+
+            resolve();
+        });
+    });
+}
+
+// ── Legacy local payload flush (for popup display) ──
 async function flushToBackend() {
     return new Promise((resolve) => {
-        // Flush active time first so data is up-to-date
         flushActiveTime();
         activeStartTime = Date.now();
 
@@ -126,20 +226,7 @@ async function flushToBackend() {
                     session_duration_ms: Date.now() - sessionStart,
                     video_log: data.video_log || []
                 };
-
                 console.log("📊 Sync payload:", JSON.stringify(payload, null, 2));
-
-                // TODO: Uncomment and replace URL when backend is ready
-                // try {
-                //     await fetch("https://your-backend-api.com/sync", {
-                //         method: "POST",
-                //         headers: { "Content-Type": "application/json" },
-                //         body: JSON.stringify(payload)
-                //     });
-                // } catch (err) {
-                //     console.error("flushToBackend failed:", err);
-                // }
-
                 resolve();
             }
         );
@@ -149,14 +236,25 @@ async function flushToBackend() {
 // ── Message handlers ──
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.action === "flush_now") {
-        flushToBackend().then(() => sendResponse({ ok: true }));
-        return true; // keep channel open for async
+        syncToConvex().then(() => {
+            flushToBackend().then(() => sendResponse({ ok: true }));
+        });
+        return true;
     }
 
-    // ── Page visit tracking ──
+    if (msg.action === "set_auth_token") {
+        chrome.storage.local.set({ convex_auth_token: msg.token }, () => {
+            console.log("🔐 Auth token saved for Convex sync");
+            sendResponse({ ok: true });
+        });
+        return true;
+    }
+
     if (msg.action === "page_visited") {
-        chrome.storage.local.get(["browsing_log"], (data) => {
+        chrome.storage.local.get(["browsing_log", "pending_events"], (data) => {
             const log = data.browsing_log || [];
+            const pending = data.pending_events || [];
+
             log.push({
                 domain: msg.data.domain,
                 title: msg.data.title,
@@ -165,12 +263,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 url: msg.data.url,
                 timestamp: msg.data.timestamp
             });
-            // Keep last 200 page visits
-            chrome.storage.local.set({ browsing_log: log.slice(-200) });
+
+            // Queue as Convex event
+            pending.push({
+                type: "session_start",
+                source: "chrome",
+                category: mapCategory(msg.data.category),
+                payload: { domainCategory: msg.data.category, hourBucket: new Date().getHours() },
+                timestamp: Date.now(),
+                batchId: generateBatchId()
+            });
+
+            chrome.storage.local.set({ 
+                browsing_log: log.slice(-200),
+                pending_events: pending.slice(-200)
+            });
         });
     }
 
-    // ── Search query tracking ──
     if (msg.action === "search_logged") {
         chrome.storage.local.get(["search_log"], (data) => {
             const log = data.search_log || [];
@@ -180,12 +290,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 url: msg.data.url,
                 timestamp: msg.data.timestamp
             });
-            // Keep last 100 searches
             chrome.storage.local.set({ search_log: log.slice(-100) });
         });
     }
 
-    // ── YouTube video tracking ──
     if (msg.action === "video_classified") {
         chrome.storage.local.get(["video_log"], (data) => {
             const videoLog = data.video_log || [];
@@ -199,7 +307,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         });
     }
 
-    // ── Get current active tab (for popup) ──
     if (msg.action === "get_current_tab") {
         chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
             if (tabs[0]) {
@@ -212,11 +319,53 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 sendResponse({ url: null, title: null, domain: null });
             }
         });
-        return true; // async
+        return true;
     }
 });
 
-// ── Initialize: start tracking the current tab on service worker start ──
+// ── Map content categories to Convex event categories ──
+function mapCategory(contentCategory) {
+    const map = {
+        "Social Media": "social",
+        "Development": "productivity",
+        "Productivity": "productivity",
+        "Educational": "education",
+        "Entertainment": "entertainment",
+        "Music": "entertainment",
+        "Video": "entertainment",
+        "Gaming": "entertainment",
+        "News": "other",
+        "Shopping": "other",
+        "Health": "other",
+    };
+    return map[contentCategory] || "other";
+}
+
+// ── Night usage detection ──
+function checkNightUsage() {
+    const hour = new Date().getHours();
+    if (hour >= 23 || hour < 5) {
+        chrome.storage.local.get(["pending_events"], (data) => {
+            const pending = data.pending_events || [];
+            pending.push({
+                type: "night_usage",
+                source: "chrome",
+                payload: { hourBucket: hour },
+                timestamp: Date.now(),
+                batchId: generateBatchId()
+            });
+            chrome.storage.local.set({ pending_events: pending.slice(-200) });
+        });
+    }
+}
+
+// Check night usage every 15 minutes
+chrome.alarms.create("night_check", { periodInMinutes: 15 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === "night_check") checkNightUsage();
+});
+
+// ── Initialize ──
 chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
     if (tabs[0]) startTracking(tabs[0].id);
 });

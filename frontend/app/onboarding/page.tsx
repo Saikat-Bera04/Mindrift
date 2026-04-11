@@ -2,15 +2,15 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { MechanicalCard, PhysicalButton, RecessedInput } from "@/components/ui/mechanics";
+import { MechanicalCard, RecessedInput } from "@/components/ui/mechanics";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Activity, Briefcase, Heart, Moon, Sun, User, Stethoscope, Sparkles } from "lucide-react";
-import { saveUserOnboardingData } from "./actions";
 
-// Shared function logic
 function calculateBMI(heightCm: number, weightKg: number) {
   if (!heightCm || !weightKg || heightCm <= 0) return 0;
   const heightM = heightCm / 100;
@@ -19,6 +19,7 @@ function calculateBMI(heightCm: number, weightKg: number) {
 
 function PersonalForm() {
   const router = useRouter();
+  const saveProfile = useMutation(api.users.mutations.saveOnboardingProfile);
   const [formData, setFormData] = useState({
     height: "", weight: "", bloodPressure: "", age: "",
     status: "", jobDescription: "",
@@ -26,47 +27,57 @@ function PersonalForm() {
     relationshipStatus: "", workingHours: "", sleepHours: ""
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const bmi = useMemo(() => calculateBMI(Number(formData.height), Number(formData.weight)), [formData.height, formData.weight]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     setIsLoading(true);
     
-    // Validate minimal requirements
     if (!formData.height || !formData.weight || !formData.age) {
-        alert("Please fill in basic health metrics.");
+        setError("Please fill in all basic health metrics (Age, Height, Weight).");
         setIsLoading(false);
         return;
     }
 
-    const payload = {
-      ...formData,
-      bmi,
-      type: "personal_sentiment_analysis",
-      timestamp: new Date().toISOString()
-    };
-
     try {
-      await saveUserOnboardingData(payload);
-      alert("Personal database record saved securely! Booting Dashboard...");
+      await saveProfile({
+        type: "personal",
+        age: Number(formData.age),
+        height: Number(formData.height),
+        weight: Number(formData.weight),
+        bmi,
+        bloodPressure: formData.bloodPressure || undefined,
+        status: formData.status || undefined,
+        jobDescription: formData.jobDescription || undefined,
+        likes: formData.likes || undefined,
+        dislikes: formData.dislikes || undefined,
+        relationshipStatus: formData.relationshipStatus || undefined,
+        workingHours: formData.workingHours ? Number(formData.workingHours) : undefined,
+        sleepHours: formData.sleepHours ? Number(formData.sleepHours) : undefined,
+      });
       router.push("/dashboard");
     } catch (e: any) {
-      alert("Error saving data: " + e.message);
+      setError(e.message || "Failed to save data. Please try again.");
       setIsLoading(false);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-2xl mx-auto pb-12 animate-[fadeIn_0.5s_ease-out]">
+      {error && (
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 text-sm font-bold font-mono uppercase tracking-wide">
+          {error}
+        </div>
+      )}
       
       <MechanicalCard elevated withVents className="p-8 space-y-6">
         <h3 className="text-xl font-bold uppercase tracking-wider flex items-center gap-3 border-b border-[#ffffff] pb-4 mb-4">
-          <Heart className="w-6 h-6 text-accent drop-shadow-sm" /> 
-           Basic Health
+          <Heart className="w-6 h-6 text-accent drop-shadow-sm" /> Basic Health
         </h3>
         <p className="text-sm font-mono text-muted-fg uppercase tracking-wide">Tell us a bit about your physical well-being.</p>
-        
         <div className="grid grid-cols-2 gap-6 mt-6">
            <div className="space-y-2">
              <Label htmlFor="p-age" className="font-bold text-foreground ml-2">Age</Label>
@@ -88,7 +99,7 @@ function PersonalForm() {
              <Label className="font-bold text-foreground ml-2">Auto-Calculated BMI</Label>
              <div className="h-14 w-full rounded-xl bg-background shadow-recessed border-none px-6 flex items-center text-accent font-mono font-bold tracking-wider">
                {bmi > 0 ? bmi : "--.--"} 
-               {bmi > 0 && <span className="ml-2 text-muted-fg blur-[0.5px]">({bmi < 18.5 ? "Underweight" : bmi < 25 ? "Normal" : bmi < 30 ? "Overweight" : "Obese"})</span>}
+               {bmi > 0 && <span className="ml-2 text-muted-fg">({bmi < 18.5 ? "Underweight" : bmi < 25 ? "Normal" : bmi < 30 ? "Overweight" : "Obese"})</span>}
              </div>
            </div>
         </div>
@@ -162,14 +173,10 @@ function PersonalForm() {
              </div>
            </div>
         </div>
-        
         <div className="pt-8 flex justify-end">
-          <button 
-             type="submit" 
-             disabled={isLoading}
-             className="relative font-bold uppercase tracking-widest rounded-xl transition-all duration-150 active:translate-y-[2px] min-h-[56px] px-8 flex items-center justify-center gap-2 bg-accent text-white shadow-[4px_4px_8px_rgba(166,50,60,0.4),-4px_-4px_8px_rgba(255,100,110,0.4)] active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.2)] border border-white/20 hover:brightness-110 w-full sm:w-auto overflow-hidden disabled:opacity-50"
-          >
-            {isLoading ? "Saving Data..." : "Boot Subsystem"}
+          <button type="submit" disabled={isLoading}
+             className="relative font-bold uppercase tracking-widest rounded-xl transition-all duration-150 active:translate-y-[2px] min-h-[56px] px-8 flex items-center justify-center gap-2 bg-accent text-white shadow-[4px_4px_8px_rgba(166,50,60,0.4),-4px_-4px_8px_rgba(255,100,110,0.4)] active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.2)] border border-white/20 hover:brightness-110 w-full sm:w-auto overflow-hidden disabled:opacity-50">
+            {isLoading ? "Saving to Database..." : "Boot Subsystem"}
             {!isLoading && <Sparkles className="w-5 h-5 ml-2" />}
           </button>
         </div>
@@ -180,6 +187,7 @@ function PersonalForm() {
 
 function ProfessionalForm() {
   const router = useRouter();
+  const saveProfile = useMutation(api.users.mutations.saveOnboardingProfile);
   const [formData, setFormData] = useState({
     age: "", height: "", weight: "", blood_pressure: "",
     status: "", job_description: "",
@@ -188,6 +196,7 @@ function ProfessionalForm() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const bmi = useMemo(() => calculateBMI(Number(formData.height), Number(formData.weight)), [formData.height, formData.weight]);
 
@@ -206,41 +215,40 @@ function ProfessionalForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    
+    setSubmitError("");
     setIsLoading(true);
 
-    const payload = {
-      age: Number(formData.age),
-      height: Number(formData.height),
-      weight: Number(formData.weight),
-      bmi,
-      blood_pressure: formData.blood_pressure || null,
-      status: formData.status || null,
-      job_description: formData.job_description,
-      likes: formData.likes,
-      dislikes: formData.dislikes,
-      relationship_status: formData.relationship_status || null,
-      working_hours: Number(formData.working_hours) || null,
-      sleep_hours: Number(formData.sleep_hours) || null,
-      type: "professional_sentiment_analysis",
-      timestamp: new Date().toISOString()
-    };
-
     try {
-      await saveUserOnboardingData(payload);
-      alert("Professional structural data fully entered into user database! Linking metrics to pipeline and booting Dashboard...");
+      await saveProfile({
+        type: "professional",
+        age: Number(formData.age),
+        height: Number(formData.height),
+        weight: Number(formData.weight),
+        bmi,
+        bloodPressure: formData.blood_pressure || undefined,
+        status: formData.status || undefined,
+        jobDescription: formData.job_description || undefined,
+        likes: formData.likes || undefined,
+        dislikes: formData.dislikes || undefined,
+        relationshipStatus: formData.relationship_status || undefined,
+        workingHours: formData.working_hours ? Number(formData.working_hours) : undefined,
+        sleepHours: formData.sleep_hours ? Number(formData.sleep_hours) : undefined,
+      });
       router.push("/dashboard");
     } catch (e: any) {
-      alert("Error saving data: " + e.message);
+      setSubmitError(e.message || "Failed to save. Please try again.");
       setIsLoading(false);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-12 max-w-3xl mx-auto pb-12 animate-[fadeIn_0.5s_ease-out]">
+      {submitError && (
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 text-sm font-bold font-mono uppercase tracking-wide">
+          {submitError}
+        </div>
+      )}
       <MechanicalCard elevated withScrews className="p-10 space-y-10">
-        
-        {/* SEC 1 */}
         <div>
           <h3 className="text-xl font-bold uppercase tracking-widest flex items-center gap-3 border-b border-[#ffffff] pb-4 mb-6 text-foreground">
             <Stethoscope className="w-6 h-6 text-accent drop-shadow-[0_0_4px_rgba(255,71,87,0.4)]" /> Demographics & Health Metrics
@@ -254,11 +262,11 @@ function ProfessionalForm() {
               <Label htmlFor="pro-height" className="font-bold ml-2">Height (cm) <span className="text-accent">*</span></Label>
               <RecessedInput id="pro-height" type="number" required value={formData.height} onChange={e => setFormData({...formData, height: e.target.value})} className={errors.height ? 'ring-2 ring-accent/50' : ''} />
             </div>
-             <div className="space-y-2">
+            <div className="space-y-2">
               <Label htmlFor="pro-weight" className="font-bold ml-2">Weight (kg) <span className="text-accent">*</span></Label>
               <RecessedInput id="pro-weight" type="number" required value={formData.weight} onChange={e => setFormData({...formData, weight: e.target.value})} className={errors.weight ? 'ring-2 ring-accent/50' : ''} />
             </div>
-             <div className="space-y-2">
+            <div className="space-y-2">
               <Label htmlFor="pro-bp" className="font-bold ml-2">Blood Pressure (Optional)</Label>
               <RecessedInput id="pro-bp" type="text" value={formData.blood_pressure} onChange={e => setFormData({...formData, blood_pressure: e.target.value})} placeholder="Systolic / Diastolic" />
             </div>
@@ -272,88 +280,81 @@ function ProfessionalForm() {
           </div>
         </div>
 
-        {/* SEC 2 */}
         <div>
           <h3 className="text-xl font-bold uppercase tracking-widest flex items-center gap-3 border-b border-[#ffffff] pb-4 mb-6 text-foreground">
             <Briefcase className="w-6 h-6 text-accent drop-shadow-[0_0_4px_rgba(255,71,87,0.4)]" /> Occupation Context
           </h3>
           <div className="space-y-6">
-             <div className="space-y-2">
-               <Label className="font-bold ml-2">Current Status</Label>
-               <Select onValueChange={v => setFormData({...formData, status: v})}>
-                  <SelectTrigger className="h-14 rounded-xl bg-background shadow-recessed border-none px-6 focus:ring-2 focus:ring-accent/50"><SelectValue placeholder="Select current status" /></SelectTrigger>
-                  <SelectContent className="bg-panel border-[#ffffff]">
-                    <SelectItem value="Student">Student</SelectItem>
-                    <SelectItem value="Employed">Employed</SelectItem>
-                    <SelectItem value="Self-employed">Self-employed</SelectItem>
-                    <SelectItem value="Unemployed">Unemployed</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-               </Select>
-             </div>
-             <div className="space-y-2">
-               <Label className="font-bold ml-2">Job Description <span className="text-accent">*</span></Label>
-               <Textarea required value={formData.job_description} onChange={e => setFormData({...formData, job_description: e.target.value})} className={`min-h-[140px] rounded-xl bg-background shadow-recessed border-none px-6 py-4 focus-visible:ring-accent/50 text-foreground resize-none ${errors.job_description ? 'ring-2 ring-accent/50' : ''}`} placeholder="Describe day-to-day responsibilities..." />
-             </div>
+            <div className="space-y-2">
+              <Label className="font-bold ml-2">Current Status</Label>
+              <Select onValueChange={v => setFormData({...formData, status: v})}>
+                <SelectTrigger className="h-14 rounded-xl bg-background shadow-recessed border-none px-6 focus:ring-2 focus:ring-accent/50"><SelectValue placeholder="Select current status" /></SelectTrigger>
+                <SelectContent className="bg-panel border-[#ffffff]">
+                  <SelectItem value="Student">Student</SelectItem>
+                  <SelectItem value="Employed">Employed</SelectItem>
+                  <SelectItem value="Self-employed">Self-employed</SelectItem>
+                  <SelectItem value="Unemployed">Unemployed</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="font-bold ml-2">Job Description <span className="text-accent">*</span></Label>
+              <Textarea required value={formData.job_description} onChange={e => setFormData({...formData, job_description: e.target.value})} className={`min-h-[140px] rounded-xl bg-background shadow-recessed border-none px-6 py-4 focus-visible:ring-accent/50 text-foreground resize-none ${errors.job_description ? 'ring-2 ring-accent/50' : ''}`} placeholder="Describe day-to-day responsibilities..." />
+            </div>
           </div>
         </div>
 
-        {/* SEC 3 */}
         <div>
           <h3 className="text-xl font-bold uppercase tracking-widest flex items-center gap-3 border-b border-[#ffffff] pb-4 mb-6 text-foreground">
             <Activity className="w-6 h-6 text-accent drop-shadow-[0_0_4px_rgba(255,71,87,0.4)]" /> Behavioral Targets
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-             <div className="space-y-2">
-               <Label className="font-bold ml-2">Likes <span className="text-accent">*</span></Label>
-               <Textarea required value={formData.likes} onChange={e => setFormData({...formData, likes: e.target.value})} className={`min-h-[120px] rounded-xl bg-background shadow-recessed border-none px-6 py-4 focus-visible:ring-accent/50 text-foreground resize-none ${errors.likes ? 'ring-2 ring-accent/50' : ''}`} />
-             </div>
-             <div className="space-y-2">
-               <Label className="font-bold ml-2">Dislikes <span className="text-accent">*</span></Label>
-               <Textarea required value={formData.dislikes} onChange={e => setFormData({...formData, dislikes: e.target.value})} className={`min-h-[120px] rounded-xl bg-background shadow-recessed border-none px-6 py-4 focus-visible:ring-accent/50 text-foreground resize-none ${errors.dislikes ? 'ring-2 ring-accent/50' : ''}`} />
-             </div>
+            <div className="space-y-2">
+              <Label className="font-bold ml-2">Likes <span className="text-accent">*</span></Label>
+              <Textarea required value={formData.likes} onChange={e => setFormData({...formData, likes: e.target.value})} className={`min-h-[120px] rounded-xl bg-background shadow-recessed border-none px-6 py-4 focus-visible:ring-accent/50 text-foreground resize-none ${errors.likes ? 'ring-2 ring-accent/50' : ''}`} />
+            </div>
+            <div className="space-y-2">
+              <Label className="font-bold ml-2">Dislikes <span className="text-accent">*</span></Label>
+              <Textarea required value={formData.dislikes} onChange={e => setFormData({...formData, dislikes: e.target.value})} className={`min-h-[120px] rounded-xl bg-background shadow-recessed border-none px-6 py-4 focus-visible:ring-accent/50 text-foreground resize-none ${errors.dislikes ? 'ring-2 ring-accent/50' : ''}`} />
+            </div>
           </div>
         </div>
 
-        {/* SEC 4 */}
         <div>
           <h3 className="text-xl font-bold uppercase tracking-widest flex items-center gap-3 border-b border-[#ffffff] pb-4 mb-6 text-foreground">
             <User className="w-6 h-6 text-accent drop-shadow-[0_0_4px_rgba(255,71,87,0.4)]" /> Personal Environment
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-             <div className="space-y-2">
-               <Label className="font-bold ml-2">Relationship</Label>
-               <Select onValueChange={v => setFormData({...formData, relationship_status: v})}>
-                  <SelectTrigger className="h-14 rounded-xl bg-background shadow-recessed border-none px-4"><SelectValue placeholder="..." /></SelectTrigger>
-                  <SelectContent className="bg-panel border-[#ffffff]">
-                    <SelectItem value="Single">Single</SelectItem>
-                    <SelectItem value="Married">Married</SelectItem>
-                    <SelectItem value="In a Relationship">In a Relationship</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-               </Select>
-             </div>
-             <div className="space-y-2">
-               <Label className="font-bold ml-2">Avg Working Hrs</Label>
-               <RecessedInput type="number" value={formData.working_hours} onChange={e => setFormData({...formData, working_hours: e.target.value})} />
-             </div>
-             <div className="space-y-2">
-               <Label className="font-bold ml-2">Avg Sleep Hrs</Label>
-               <RecessedInput type="number" value={formData.sleep_hours} onChange={e => setFormData({...formData, sleep_hours: e.target.value})} />
-             </div>
+            <div className="space-y-2">
+              <Label className="font-bold ml-2">Relationship</Label>
+              <Select onValueChange={v => setFormData({...formData, relationship_status: v})}>
+                <SelectTrigger className="h-14 rounded-xl bg-background shadow-recessed border-none px-4"><SelectValue placeholder="..." /></SelectTrigger>
+                <SelectContent className="bg-panel border-[#ffffff]">
+                  <SelectItem value="Single">Single</SelectItem>
+                  <SelectItem value="Married">Married</SelectItem>
+                  <SelectItem value="In a Relationship">In a Relationship</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="font-bold ml-2">Avg Working Hrs</Label>
+              <RecessedInput type="number" value={formData.working_hours} onChange={e => setFormData({...formData, working_hours: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label className="font-bold ml-2">Avg Sleep Hrs</Label>
+              <RecessedInput type="number" value={formData.sleep_hours} onChange={e => setFormData({...formData, sleep_hours: e.target.value})} />
+            </div>
           </div>
         </div>
 
         <div className="pt-8 border-t border-[#ffffff] flex justify-end">
-          <button 
-             type="submit" 
-             disabled={isLoading}
-             className="relative font-bold uppercase tracking-widest rounded-xl transition-all duration-150 active:translate-y-[2px] min-h-[56px] px-8 flex items-center justify-center gap-2 bg-accent text-white shadow-[4px_4px_8px_rgba(166,50,60,0.4),-4px_-4px_8px_rgba(255,100,110,0.4)] active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.2)] border border-white/20 hover:brightness-110 w-full sm:w-auto disabled:opacity-50"          
-          >
+          <button type="submit" disabled={isLoading}
+             className="relative font-bold uppercase tracking-widest rounded-xl transition-all duration-150 active:translate-y-[2px] min-h-[56px] px-8 flex items-center justify-center gap-2 bg-accent text-white shadow-[4px_4px_8px_rgba(166,50,60,0.4),-4px_-4px_8px_rgba(255,100,110,0.4)] active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.2)] border border-white/20 hover:brightness-110 w-full sm:w-auto disabled:opacity-50">
             {isLoading ? "Executing Pipeline..." : "Commit Setup To Database"}
           </button>
         </div>
-
       </MechanicalCard>
     </form>
   )
@@ -362,9 +363,7 @@ function ProfessionalForm() {
 export default function OnboardingPage() {
   return (
     <div className="min-h-screen bg-background py-16 px-4 animate-[fadeIn_0.5s_ease-out] relative">
-      {/* Background aesthetics */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-20 bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.05)_50%)] bg-[length:100%_4px] mix-blend-overlay"></div>
-      
       <div className="max-w-4xl mx-auto space-y-12 relative z-10">
         <div className="text-center space-y-4">
           <div className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-background shadow-floating mb-4">
@@ -389,14 +388,8 @@ export default function OnboardingPage() {
               </TabsTrigger>
             </TabsList>
           </div>
-          
-          <TabsContent value="personal" className="mt-0">
-            <PersonalForm />
-          </TabsContent>
-          
-          <TabsContent value="professional" className="mt-0">
-            <ProfessionalForm />
-          </TabsContent>
+          <TabsContent value="personal" className="mt-0"><PersonalForm /></TabsContent>
+          <TabsContent value="professional" className="mt-0"><ProfessionalForm /></TabsContent>
         </Tabs>
       </div>
     </div>

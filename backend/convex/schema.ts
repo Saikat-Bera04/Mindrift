@@ -250,7 +250,8 @@ export default defineSchema({
     }),
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_and_isActive", ["userId", "isActive"]),
+    .index("by_userId_and_isActive", ["userId", "isActive"])
+    .index("by_isActive", ["isActive"]),
 
   // ─── XP Ledger (audit trail) ───────────────────────────────────
   xpLedger: defineTable({
@@ -264,6 +265,25 @@ export default defineSchema({
       v.literal("daily_login"),
       v.literal("score_improvement")
     ),
+  })
+    .index("by_userId", ["userId"]),
+
+  // ─── Onboarding Profiles ────────────────────────────────────────
+  onboardingProfiles: defineTable({
+    userId: v.id("users"),
+    type: v.union(v.literal("personal"), v.literal("professional")),
+    age: v.number(),
+    height: v.number(),
+    weight: v.number(),
+    bmi: v.number(),
+    bloodPressure: v.optional(v.string()),
+    status: v.optional(v.string()),
+    jobDescription: v.optional(v.string()),
+    likes: v.optional(v.string()),
+    dislikes: v.optional(v.string()),
+    relationshipStatus: v.optional(v.string()),
+    workingHours: v.optional(v.number()),
+    sleepHours: v.optional(v.number()),
   })
     .index("by_userId", ["userId"]),
 

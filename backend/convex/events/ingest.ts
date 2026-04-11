@@ -1,6 +1,5 @@
 import { v } from "convex/values";
-import { httpAction } from "../_generated/server";
-import { internalMutation } from "../_generated/server";
+import { httpAction, internalMutation, internalQuery } from "../_generated/server";
 import { internal } from "../_generated/api";
 import {
   sourceValidator,
@@ -13,9 +12,27 @@ import { MAX_EVENTS_PER_BATCH } from "../lib/constants";
 // ─── HTTP Action: Batch Event Ingestion ─────────────────────────
 // Extensions POST events here: {CONVEX_SITE_URL}/events/batch
 export const batchIngest = httpAction(async (ctx, req) => {
-  // Verify auth
+  // Verify auth (Clerk JWT or Pairing Token)
+  let tokenIdentifier: string | null = null;
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
+  
+  if (identity) {
+    tokenIdentifier = identity.tokenIdentifier;
+  } else {
+    // Check for pairing token in Authorization header
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      // In this prototype, the 'token' is the clerkUserId.
+      // We check if this user has any 'paired' devices.
+      const pairing = await ctx.runQuery(internal.events.ingest.checkPairing, { token });
+      if (pairing) {
+        tokenIdentifier = pairing.tokenIdentifier;
+      }
+    }
+  }
+
+  if (!tokenIdentifier) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -63,7 +80,7 @@ export const batchIngest = httpAction(async (ctx, req) => {
   try {
     const result: { inserted: number; duplicates: number } =
       await ctx.runMutation(internal.events.ingest.insertBatch, {
-        tokenIdentifier: identity.tokenIdentifier!,
+        tokenIdentifier,
         events: parsed.events.map((e) => ({
           type: e.type,
           source: e.source,
@@ -159,5 +176,28 @@ export const insertBatch = internalMutation({
     }
 
     return { inserted, duplicates };
+  },
+});
+
+// ─── Internal Query: Check Pairing ─────────────────────────────
+export const checkPairing = internalQuery({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.token))
+      .unique();
+
+    if (!user) return null;
+
+    const pairing = await ctx.db
+      .query("devicePairings")
+      .withIndex("by_status", (q) => q.eq("status", "paired"))
+      .filter((q) => q.eq(q.field("clerkUserId"), user.clerkId))
+      .first();
+
+    if (!pairing) return null;
+
+    return { tokenIdentifier: user.tokenIdentifier };
   },
 });

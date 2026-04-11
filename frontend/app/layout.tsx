@@ -5,6 +5,7 @@ import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 import { ClerkProvider } from '@clerk/nextjs'
+import { ConvexClientProvider } from "@/components/providers/convex-provider"
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -28,13 +29,14 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en">
-        <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased text-foreground bg-background`}>
-          {children}
-          <Analytics />
-        </body>
-      </html>
+      <ConvexClientProvider>
+        <html lang="en" suppressHydrationWarning>
+          <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased text-foreground bg-background`} suppressHydrationWarning>
+            {children}
+            <Analytics />
+          </body>
+        </html>
+      </ConvexClientProvider>
     </ClerkProvider>
   )
 }
-
