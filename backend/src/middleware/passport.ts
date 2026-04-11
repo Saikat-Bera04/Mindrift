@@ -1,15 +1,17 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 
+/** Must match an "Authorized redirect URI" in Google Cloud Console. */
 function resolveGoogleCallbackURL(): string {
   const explicit = process.env.GOOGLE_CALLBACK_URL?.trim();
   if (explicit) return explicit;
-  const base = process.env.BACKEND_PUBLIC_URL?.trim().replace(/\/$/, "");
-  if (base) return `${base}/auth/google/callback`;
-  return "/auth/google/callback";
+  const fromPublic = process.env.BACKEND_PUBLIC_URL?.trim().replace(/\/$/, "");
+  if (fromPublic) return `${fromPublic}/auth/google/callback`;
+  const fromBackend = process.env.BACKEND_URL?.trim().replace(/\/$/, "");
+  if (fromBackend) return `${fromBackend}/auth/google/callback`;
+  const port = process.env.PORT ?? "3001";
+  return `http://localhost:${port}/auth/google/callback`;
 }
-
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3001";
 
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(
@@ -17,7 +19,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: `${BACKEND_URL}/auth/google/callback`,
+        callbackURL: resolveGoogleCallbackURL(),
       },
       (_accessToken, _refreshToken, profile, done) => {
         // Return the profile so our route handler can use it
