@@ -529,9 +529,26 @@
     </div>
 
     <!-- Actions -->
-    <div class="actions">
+    <div class="actions" id="main-actions">
         <button class="sync-btn" id="sync-btn">↑ Sync now</button>
         <button class="clear-btn" id="clear-btn">🗑 Clear all data</button>
+    </div>
+
+    <!-- Pairing UI (Hidden by default) -->
+    <div id="pairing-screen" style="display: none; padding: 20px; text-align: center; border-top: 1px solid #333; margin-top: 14px;">
+        <div class="now-label" style="margin-bottom: 10px;">Cloud Connection Required</div>
+        <p style="font-size: 11px; color: #888; margin-bottom: 20px;">Enter the 6-digit protocol code from your Santulan Dashboard settings.</p>
+        
+        <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 20px;">
+            <input type="text" id="pair-code" maxlength="6" placeholder="000000" 
+                style="width: 140px; height: 44px; background: #161618; border: 1px solid #333; border-radius: 8px; color: #fff; text-align: center; font-size: 18px; font-weight: 700; letter-spacing: 4px; outline: none;">
+        </div>
+        
+        <button id="pair-btn" 
+            style="width: 100%; padding: 12px; background: #4ade80; color: #000; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 12px; text-transform: uppercase;">
+            Pair Device
+        </button>
+        <div id="pair-status" style="margin-top: 12px; font-size: 10px; color: #f87171;"></div>
     </div>
 
     <script src="popup.js"></script>

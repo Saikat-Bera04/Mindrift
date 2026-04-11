@@ -147,13 +147,62 @@ chrome.storage.local.get(
     }
 );
 
+const CONVEX_SITE_URL = "https://diligent-echidna-278.convex.site";
+
+// ── Check if paired and toggle UI ──
+chrome.storage.local.get(["convex_auth_token"], (data) => {
+    const isPaired = !!data.convex_auth_token;
+    document.getElementById("pairing-screen").style.display = isPaired ? "none" : "block";
+    document.getElementById("main-actions").style.display = isPaired ? "block" : "none";
+});
+
+// ── Pairing Button Logic ──
+document.getElementById("pair-btn").addEventListener("click", async () => {
+    const code = document.getElementById("pair-code").value.trim();
+    const status = document.getElementById("pair-status");
+    
+    if (code.length !== 6) {
+        status.textContent = "Please enter a 6-digit code";
+        return;
+    }
+
+    status.textContent = "Verifying protocol...";
+    status.style.color = "#4ade80";
+
+    try {
+        const response = await fetch(`${CONVEX_SITE_URL}/pair`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pairingCode: code })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.token) {
+            chrome.storage.local.set({ 
+                convex_auth_token: result.token,
+                device_name: result.deviceName 
+            }, () => {
+                status.textContent = "Success! Device paired.";
+                setTimeout(() => location.reload(), 1500);
+            });
+        } else {
+            status.textContent = `Error: ${result.error || "Invalid code"}`;
+            status.style.color = "#f87171";
+        }
+    } catch (err) {
+        status.textContent = "Network error connection failed";
+        status.style.color = "#f87171";
+    }
+});
+
 // ── Sync button ──
 document.getElementById("sync-btn").addEventListener("click", () => {
     const btn = document.getElementById("sync-btn");
-    btn.textContent = "Syncing...";
+    btn.textContent = "Syncing to Convex...";
     btn.disabled = true;
     chrome.runtime.sendMessage({ action: "flush_now" }, () => {
-        btn.textContent = "✓ Synced!";
+        btn.textContent = "✓ Synced to Database!";
         setTimeout(() => { btn.textContent = "↑ Sync now"; btn.disabled = false; }, 2000);
     });
 });
@@ -163,6 +212,20 @@ document.getElementById("clear-btn").addEventListener("click", () => {
     if (!confirm("Clear all tracked data?")) return;
     chrome.storage.local.set({
         screen_time: {}, tab_switches: 0, idle_log: [],
-        video_log: [], search_log: [], browsing_log: []
+        video_log: [], search_log: [], browsing_log: [],
+        pending_events: []
     }, () => location.reload());
+});
+
+// ── Sync status indicator ──
+chrome.storage.local.get(["convex_auth_token", "pending_events"], (data) => {
+    const syncStatus = document.getElementById("sync-btn");
+    if (!syncStatus) return;
+    const pendingCount = (data.pending_events || []).length;
+    
+    if (data.convex_auth_token) {
+        syncStatus.textContent = `↑ Sync now (${pendingCount} pending)`;
+    } else {
+        syncStatus.textContent = "⚠️ Not paired";
+    }
 });

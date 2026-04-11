@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, internalMutation, query } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { settingsValidator } from "../lib/validators";
+import { requireUser, getOptionalUser } from "./helpers";
 
 // ─── Default settings for new users ─────────────────────────────
 const DEFAULT_SETTINGS = {
@@ -75,17 +76,7 @@ export const updateSettings = mutation({
     settings: settingsValidator,
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier)
-      )
-      .unique();
-
-    if (!user) throw new Error("User not found");
+    const user = await requireUser(ctx);
 
     await ctx.db.patch(user._id, {
       settings: args.settings,
@@ -95,21 +86,50 @@ export const updateSettings = mutation({
   },
 });
 
+// ─── Save onboarding profile data ────────────────────────────────
+export const saveOnboardingProfile = mutation({
+  args: {
+    type: v.union(v.literal("personal"), v.literal("professional")),
+    age: v.number(),
+    height: v.number(),
+    weight: v.number(),
+    bmi: v.number(),
+    bloodPressure: v.optional(v.string()),
+    status: v.optional(v.string()),
+    jobDescription: v.optional(v.string()),
+    likes: v.optional(v.string()),
+    dislikes: v.optional(v.string()),
+    relationshipStatus: v.optional(v.string()),
+    workingHours: v.optional(v.number()),
+    sleepHours: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+
+    // Check if profile already exists
+    const existing = await ctx.db
+      .query("onboardingProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { ...args });
+    } else {
+      await ctx.db.insert("onboardingProfiles", {
+        userId: user._id,
+        ...args,
+      });
+    }
+
+    return { success: true };
+  },
+});
+
 // ─── Delete all user data (GDPR) ─────────────────────────────────
 export const deleteAllData = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier)
-      )
-      .unique();
-
-    if (!user) throw new Error("User not found");
+    const user = await requireUser(ctx);
 
     // Delete all related data in batches
     const tables = [
@@ -172,16 +192,7 @@ export const deleteByClerkId = internalMutation({
 export const exportData = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier)
-      )
-      .unique();
-
+    const user = await getOptionalUser(ctx);
     if (!user) return null;
 
     const [events, scores, insights, interventions, rewards, reports, sessions, xpLedger] =
@@ -239,6 +250,62 @@ export const exportData = query({
       sessions,
       xpLedger,
       exportedAt: new Date().toISOString(),
+    };
+  },
+});
+// ─── Generate extension pairing code ─────────────────────────────
+export const generatePairingCode = mutation({
+  args: {
+    deviceName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+
+    // Generate a 6-digit code
+    const pairingCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Expire in 10 minutes
+    const expiresAt = Date.now() + 10 * 60 * 1000;
+
+    await ctx.db.insert("devicePairings", {
+      pairingCode,
+      clerkUserId: user.clerkId,
+      deviceName: args.deviceName || "Chrome Extension",
+      status: "pending",
+      expiresAt,
+    });
+
+    return { pairingCode, expiresAt };
+  },
+});
+
+// ─── Complete pairing from extension ─────────────────────────────
+export const pairDevice = mutation({
+  args: {
+    pairingCode: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const pairing = await ctx.db
+      .query("devicePairings")
+      .withIndex("by_pairingCode", (q) => q.eq("pairingCode", args.pairingCode))
+      .unique();
+
+    if (!pairing || pairing.status !== "pending" || pairing.expiresAt < Date.now()) {
+      throw new Error("Invalid or expired pairing code");
+    }
+
+    // Update status
+    await ctx.db.patch(pairing._id, {
+      status: "paired",
+    });
+
+    // In a real app, we'd return a long-lived token here.
+    // For this prototype, we'll return the Clerk User ID as the 'token'
+    // and modify batchIngest to check it if no JWT is present.
+    return { 
+      success: true, 
+      token: pairing.clerkUserId,
+      deviceName: pairing.deviceName 
     };
   },
 });

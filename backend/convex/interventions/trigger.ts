@@ -232,7 +232,7 @@ export const checkAllUsers = internalMutation({
     // Find users with active sessions
     const activeSessions = await ctx.db
       .query("sessions")
-      .withIndex("by_userId_and_isActive", (q) =>
+      .withIndex("by_isActive", (q) =>
         q.eq("isActive", true)
       )
       .take(100);

@@ -1,19 +1,13 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
+import { getOptionalUser } from "./helpers";
 
 // ─── Get current user profile ────────────────────────────────────
 export const getMe = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier)
-      )
-      .unique();
+    const user = await getOptionalUser(ctx);
+    if (!user) return null;
 
     if (!user) return null;
 
@@ -33,19 +27,30 @@ export const getMe = query({
   },
 });
 
+// ─── Get onboarding profile ──────────────────────────────────────
+export const getOnboardingProfile = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getOptionalUser(ctx);
+    if (!user) return null;
+
+    if (!user) return null;
+
+    const profile = await ctx.db
+      .query("onboardingProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .unique();
+
+    return profile;
+  },
+});
+
 // ─── Get full dashboard data (aggregated view) ───────────────────
 export const getDashboard = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier)
-      )
-      .unique();
+    const user = await getOptionalUser(ctx);
+    if (!user) return null;
 
     if (!user) return null;
 
