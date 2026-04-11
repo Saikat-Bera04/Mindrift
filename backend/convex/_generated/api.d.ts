@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as auth_mutations from "../auth/mutations.js";
 import type * as crons from "../crons.js";
 import type * as events_cleanup from "../events/cleanup.js";
 import type * as events_ingest from "../events/ingest.js";
@@ -23,12 +24,15 @@ import type * as interventions_mutations from "../interventions/mutations.js";
 import type * as interventions_queries from "../interventions/queries.js";
 import type * as interventions_trigger from "../interventions/trigger.js";
 import type * as lib_constants from "../lib/constants.js";
+import type * as lib_jwt from "../lib/jwt.js";
+import type * as lib_password from "../lib/password.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as reports_generate from "../reports/generate.js";
 import type * as reports_queries from "../reports/queries.js";
 import type * as scoring_compute from "../scoring/compute.js";
 import type * as scoring_queries from "../scoring/queries.js";
 import type * as scoring_rules from "../scoring/rules.js";
+import type * as users from "../users.js";
 import type * as users_helpers from "../users/helpers.js";
 import type * as users_mutations from "../users/mutations.js";
 import type * as users_queries from "../users/queries.js";
@@ -40,6 +44,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "auth/mutations": typeof auth_mutations;
   crons: typeof crons;
   "events/cleanup": typeof events_cleanup;
   "events/ingest": typeof events_ingest;
@@ -55,12 +60,15 @@ declare const fullApi: ApiFromModules<{
   "interventions/queries": typeof interventions_queries;
   "interventions/trigger": typeof interventions_trigger;
   "lib/constants": typeof lib_constants;
+  "lib/jwt": typeof lib_jwt;
+  "lib/password": typeof lib_password;
   "lib/validators": typeof lib_validators;
   "reports/generate": typeof reports_generate;
   "reports/queries": typeof reports_queries;
   "scoring/compute": typeof scoring_compute;
   "scoring/queries": typeof scoring_queries;
   "scoring/rules": typeof scoring_rules;
+  users: typeof users;
   "users/helpers": typeof users_helpers;
   "users/mutations": typeof users_mutations;
   "users/queries": typeof users_queries;

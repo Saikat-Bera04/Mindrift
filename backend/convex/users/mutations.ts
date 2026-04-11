@@ -104,7 +104,10 @@ export const saveOnboardingProfile = mutation({
     sleepHours: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
+    const user = await getOptionalUser(ctx);
+    if (!user) {
+      return { success: false, error: "UNAUTHENTICATED" as const };
+    }
 
     // Check if profile already exists
     const existing = await ctx.db
@@ -280,7 +283,7 @@ export const generatePairingCode = mutation({
 });
 
 // ─── Complete pairing from extension ─────────────────────────────
-export const pairDevice = mutation({
+export const pairDevice = internalMutation({
   args: {
     pairingCode: v.string(),
   },

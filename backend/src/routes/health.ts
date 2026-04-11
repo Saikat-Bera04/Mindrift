@@ -2,7 +2,6 @@ import { Router, Request, Response } from "express";
 
 const router = Router();
 
-// ─── GET /health — Basic health check ───────────────────────────
 router.get("/", (_req: Request, res: Response) => {
   res.json({
     status: "healthy",
@@ -13,10 +12,8 @@ router.get("/", (_req: Request, res: Response) => {
   });
 });
 
-// ─── GET /health/convex — Convex connection status ──────────────
 router.get("/convex", async (_req: Request, res: Response) => {
   const convexUrl = process.env.CONVEX_URL;
-
   if (!convexUrl) {
     res.status(503).json({
       status: "unhealthy",
@@ -26,7 +23,6 @@ router.get("/convex", async (_req: Request, res: Response) => {
   }
 
   try {
-    // Simple connectivity check
     const response = await fetch(convexUrl, {
       method: "OPTIONS",
       signal: AbortSignal.timeout(5000),
@@ -36,11 +32,11 @@ router.get("/convex", async (_req: Request, res: Response) => {
       status: "healthy",
       convexUrl: convexUrl.replace(
         /https:\/\/(.{8}).*?(\.convex\.cloud)/,
-        "https://$1****$2"
+        "https://$1****$2",
       ),
       responseStatus: response.status,
     });
-  } catch (err) {
+  } catch {
     res.status(503).json({
       status: "unhealthy",
       error: "Cannot reach Convex",
@@ -48,15 +44,14 @@ router.get("/convex", async (_req: Request, res: Response) => {
   }
 });
 
-// ─── GET /health/ready — Readiness probe for Render ──────────────
 router.get("/ready", (_req: Request, res: Response) => {
   const checks = {
     convexUrl: !!process.env.CONVEX_URL,
-    clerkSecret: !!process.env.CLERK_WEBHOOK_SECRET,
+    jwtPrivateKey: !!process.env.JWT_PRIVATE_KEY_PEM,
+    jwtPublicJwk: !!process.env.JWT_PUBLIC_KEY_JWK,
   };
 
   const allReady = Object.values(checks).every(Boolean);
-
   res.status(allReady ? 200 : 503).json({
     ready: allReady,
     checks,
