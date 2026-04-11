@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
+import { useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MechanicalCard, RecessedInput } from "@/components/ui/mechanics";
@@ -19,6 +19,7 @@ function calculateBMI(heightCm: number, weightKg: number) {
 
 function PersonalForm() {
   const router = useRouter();
+  const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
   const saveProfile = useMutation(api.users.mutations.saveOnboardingProfile);
   const [formData, setFormData] = useState({
     height: "", weight: "", bloodPressure: "", age: "",
@@ -34,6 +35,12 @@ function PersonalForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (authLoading || !isAuthenticated) {
+      setError("You need to be signed in before saving onboarding.");
+      return;
+    }
+
     setIsLoading(true);
     
     if (!formData.height || !formData.weight || !formData.age) {
@@ -43,7 +50,7 @@ function PersonalForm() {
     }
 
     try {
-      await saveProfile({
+      const result = await saveProfile({
         type: "personal",
         age: Number(formData.age),
         height: Number(formData.height),
@@ -58,6 +65,11 @@ function PersonalForm() {
         workingHours: formData.workingHours ? Number(formData.workingHours) : undefined,
         sleepHours: formData.sleepHours ? Number(formData.sleepHours) : undefined,
       });
+      if (!result?.success) {
+        setError("Authentication failed. Please sign in again and retry.");
+        setIsLoading(false);
+        return;
+      }
       router.push("/dashboard");
     } catch (e: any) {
       setError(e.message || "Failed to save data. Please try again.");
@@ -174,9 +186,9 @@ function PersonalForm() {
            </div>
         </div>
         <div className="pt-8 flex justify-end">
-          <button type="submit" disabled={isLoading}
+          <button type="submit" disabled={isLoading || authLoading || !isAuthenticated}
              className="relative font-bold uppercase tracking-widest rounded-xl transition-all duration-150 active:translate-y-[2px] min-h-[56px] px-8 flex items-center justify-center gap-2 bg-accent text-white shadow-[4px_4px_8px_rgba(166,50,60,0.4),-4px_-4px_8px_rgba(255,100,110,0.4)] active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.2)] border border-white/20 hover:brightness-110 w-full sm:w-auto overflow-hidden disabled:opacity-50">
-            {isLoading ? "Saving to Database..." : "Boot Subsystem"}
+            {authLoading ? "Authenticating..." : isLoading ? "Saving to Database..." : "Boot Subsystem"}
             {!isLoading && <Sparkles className="w-5 h-5 ml-2" />}
           </button>
         </div>
@@ -187,6 +199,7 @@ function PersonalForm() {
 
 function ProfessionalForm() {
   const router = useRouter();
+  const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
   const saveProfile = useMutation(api.users.mutations.saveOnboardingProfile);
   const [formData, setFormData] = useState({
     age: "", height: "", weight: "", blood_pressure: "",
@@ -214,12 +227,16 @@ function ProfessionalForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (authLoading || !isAuthenticated) {
+      setSubmitError("You need to be signed in before saving onboarding.");
+      return;
+    }
     if (!validate()) return;
     setSubmitError("");
     setIsLoading(true);
 
     try {
-      await saveProfile({
+      const result = await saveProfile({
         type: "professional",
         age: Number(formData.age),
         height: Number(formData.height),
@@ -234,6 +251,11 @@ function ProfessionalForm() {
         workingHours: formData.working_hours ? Number(formData.working_hours) : undefined,
         sleepHours: formData.sleep_hours ? Number(formData.sleep_hours) : undefined,
       });
+      if (!result?.success) {
+        setSubmitError("Authentication failed. Please sign in again and retry.");
+        setIsLoading(false);
+        return;
+      }
       router.push("/dashboard");
     } catch (e: any) {
       setSubmitError(e.message || "Failed to save. Please try again.");
@@ -350,9 +372,9 @@ function ProfessionalForm() {
         </div>
 
         <div className="pt-8 border-t border-[#ffffff] flex justify-end">
-          <button type="submit" disabled={isLoading}
+          <button type="submit" disabled={isLoading || authLoading || !isAuthenticated}
              className="relative font-bold uppercase tracking-widest rounded-xl transition-all duration-150 active:translate-y-[2px] min-h-[56px] px-8 flex items-center justify-center gap-2 bg-accent text-white shadow-[4px_4px_8px_rgba(166,50,60,0.4),-4px_-4px_8px_rgba(255,100,110,0.4)] active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.2)] border border-white/20 hover:brightness-110 w-full sm:w-auto disabled:opacity-50">
-            {isLoading ? "Executing Pipeline..." : "Commit Setup To Database"}
+            {authLoading ? "Authenticating..." : isLoading ? "Executing Pipeline..." : "Commit Setup To Database"}
           </button>
         </div>
       </MechanicalCard>

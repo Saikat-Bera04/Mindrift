@@ -1,13 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useQuery } from "convex/react";
 import {
-  LayoutDashboard, Lightbulb, Activity, BarChart3, Settings,
-  ChevronLeft, ChevronRight, Activity as Sparkles, LogOut, Menu, X, MessageCircle
+  LayoutDashboard,
+  Lightbulb,
+  Activity,
+  BarChart3,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Activity as Sparkles,
+  LogOut,
+  Menu,
+  X,
+  MessageCircle,
 } from "lucide-react";
-import { PhysicalButton } from "@/components/ui/mechanics";
+import { api } from "@/convex/_generated/api";
+import { notifyAuthChanged } from "@/lib/jwt-auth";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -18,16 +30,33 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-import { useUser, SignOutButton } from "@clerk/nextjs";
-
 export function DashboardSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const dbUser = useQuery(api.users.queries.getMe);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user } = useUser();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const initials = `${user?.firstName?.charAt(0) || 'U'}${user?.lastName?.charAt(0) || ''}`;
-  const userName = user?.fullName || 'User';
+  const userName = dbUser?.displayName || dbUser?.email || "User";
+  const initials = userName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((chunk: string) => chunk[0]?.toUpperCase() ?? "")
+    .join("") || "U";
+
+  const logout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      notifyAuthChanged();
+      router.push("/");
+      router.refresh();
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <>
@@ -54,13 +83,12 @@ export function DashboardSidebar() {
           ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
         `}
       >
-        {/* Logo */}
         <div className="relative flex items-center gap-4 px-6 py-8 border-b border-muted-bg/50 shadow-[0_1px_0_#ffffff]">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background shadow-floating">
             <Sparkles className="w-5 h-5 text-accent" />
           </div>
           {!collapsed && (
-            <span className="text-xl font-bold tracking-tight text-foreground" style={{ textShadow: '0 1px 1px #ffffff' }}>
+            <span className="text-xl font-bold tracking-tight text-foreground" style={{ textShadow: "0 1px 1px #ffffff" }}>
               AURA
             </span>
           )}
@@ -72,7 +100,6 @@ export function DashboardSidebar() {
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className="relative flex-1 flex flex-col gap-3 px-4 py-8 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
@@ -84,28 +111,32 @@ export function DashboardSidebar() {
                 onClick={() => setMobileOpen(false)}
                 className={`
                   group flex items-center gap-4 rounded-xl transition-all duration-200 min-h-[48px]
-                  ${isActive
-                    ? "bg-background shadow-recessed text-accent px-4"
-                    : "text-muted-fg hover:text-foreground hover:bg-panel hover:shadow-sharp px-4"
+                  ${
+                    isActive
+                      ? "bg-background shadow-recessed text-accent px-4"
+                      : "text-muted-fg hover:text-foreground hover:bg-panel hover:shadow-sharp px-4"
                   }
                   ${collapsed ? "justify-center px-0 hover:px-0" : ""}
                 `}
               >
                 <div className="relative flex items-center justify-center">
                   <Icon className={`w-5 h-5 shrink-0 ${isActive ? "drop-shadow-[0_0_4px_rgba(255,71,87,0.4)]" : ""}`} />
-                  {isActive && <div className="absolute right-[-6px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-accent shadow-glow" />}
+                  {isActive && (
+                    <div className="absolute right-[-6px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-accent shadow-glow" />
+                  )}
                 </div>
-                {!collapsed && (
-                  <span className="text-sm font-bold uppercase tracking-wider">{item.label}</span>
-                )}
+                {!collapsed && <span className="text-sm font-bold uppercase tracking-wider">{item.label}</span>}
               </Link>
             );
           })}
         </nav>
 
-        {/* User section */}
         <div className="relative p-6 pt-0 flex flex-col gap-4">
-          <div className={`p-4 rounded-xl bg-background shadow-recessed flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
+          <div
+            className={`p-4 rounded-xl bg-background shadow-recessed flex items-center gap-3 ${
+              collapsed ? "justify-center" : ""
+            }`}
+          >
             <div className="w-10 h-10 shrink-0 rounded-full bg-background shadow-floating border border-[#ffffff] flex items-center justify-center text-sm font-bold text-foreground uppercase">
               {initials}
             </div>
@@ -116,12 +147,17 @@ export function DashboardSidebar() {
               </div>
             )}
           </div>
-          <SignOutButton redirectUrl="/">
-            <button className={`flex items-center gap-3 w-full p-3 rounded-xl bg-background shadow-floating border border-[#ffffff] text-accent hover:bg-accent/10 transition-colors ${collapsed ? "justify-center" : "px-4"}`}>
-              <LogOut className="w-5 h-5" />
-              {!collapsed && <span className="text-sm font-bold uppercase tracking-wide">Logout</span>}
-            </button>
-          </SignOutButton>
+
+          <button
+            onClick={logout}
+            disabled={isLoggingOut}
+            className={`flex items-center gap-3 w-full p-3 rounded-xl bg-background shadow-floating border border-[#ffffff] text-accent hover:bg-accent/10 transition-colors disabled:opacity-60 ${
+              collapsed ? "justify-center" : "px-4"
+            }`}
+          >
+            <LogOut className="w-5 h-5" />
+            {!collapsed && <span className="text-sm font-bold uppercase tracking-wide">{isLoggingOut ? "Logging out..." : "Logout"}</span>}
+          </button>
         </div>
 
         <button

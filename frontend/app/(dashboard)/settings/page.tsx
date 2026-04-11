@@ -6,7 +6,6 @@ import { api } from "@/convex/_generated/api";
 import { DashboardHeader } from "@/components/dashboard/header";
 import { User, Bell, Palette, Shield, Heart, Activity } from "lucide-react";
 import { MechanicalCard, PhysicalButton, RecessedInput } from "@/components/ui/mechanics";
-import { useUser } from "@clerk/nextjs";
 
 const sections = [
   { id: 'profile', label: 'USER PROFILE', icon: User },
@@ -33,11 +32,16 @@ export default function SettingsPage() {
   });
   const [dataSharing, setDataSharing] = useState(false);
   
-  const { user } = useUser();
   const dbUser = useQuery(api.users.queries.getMe);
   const profile = useQuery(api.users.queries.getOnboardingProfile);
 
-  const initials = `${user?.firstName?.charAt(0) || 'U'}${user?.lastName?.charAt(0) || ''}`;
+  const nameForInitials = dbUser?.displayName || dbUser?.email || "User";
+  const initials = nameForInitials
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part: string) => part[0]?.toUpperCase() ?? "")
+    .join("") || "U";
 
   return (
     <>
@@ -73,10 +77,10 @@ export default function SettingsPage() {
                 
                 <div className="flex items-center gap-6">
                   <div className="w-20 h-20 rounded-full bg-background shadow-floating border-2 border-white flex items-center justify-center text-2xl font-bold text-foreground uppercase overflow-hidden">
-                    {user?.imageUrl ? <img src={user.imageUrl} className="w-full h-full object-cover" /> : initials}
+                    {dbUser?.avatarUrl ? <img src={dbUser.avatarUrl} className="w-full h-full object-cover" /> : initials}
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-foreground">{user?.fullName || dbUser?.displayName || "User"}</p>
+                    <p className="text-lg font-bold text-foreground">{dbUser?.displayName || "User"}</p>
                     <p className="text-xs font-mono text-muted-fg uppercase tracking-widest">
                       Level {dbUser?.level ?? 1} • {dbUser?.xp ?? 0} XP • Streak: {dbUser?.currentStreak ?? 0}d
                     </p>
@@ -85,8 +89,8 @@ export default function SettingsPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                   {[
-                    { label: 'CLASSIFICATION (NAME)', value: user?.fullName || '' },
-                    { label: 'COMM_ADDRESS (EMAIL)', value: user?.primaryEmailAddress?.emailAddress || '' },
+                    { label: 'CLASSIFICATION (NAME)', value: dbUser?.displayName || '' },
+                    { label: 'COMM_ADDRESS (EMAIL)', value: dbUser?.email || '' },
                     { label: 'OPERATIONAL_TIMEZONE', value: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' },
                   ].map((field) => (
                     <div key={field.label} className={field.label.includes('EMAIL') ? 'md:col-span-2' : ''}>

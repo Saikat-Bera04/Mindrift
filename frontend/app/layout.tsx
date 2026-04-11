@@ -4,7 +4,6 @@ import { Inter, JetBrains_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
-import { ClerkProvider } from '@clerk/nextjs'
 import { ConvexClientProvider } from "@/components/providers/convex-provider"
 
 const inter = Inter({ 
@@ -29,15 +28,13 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <ClerkProvider>
-      <ConvexClientProvider>
-        <html lang="en" suppressHydrationWarning>
-          <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased text-foreground bg-background`} suppressHydrationWarning>
-            {children}
-            <Analytics />
-          </body>
-        </html>
-      </ConvexClientProvider>
-    </ClerkProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased text-foreground bg-background`} suppressHydrationWarning>
+        <ConvexClientProvider>
+          {children}
+          <Analytics />
+        </ConvexClientProvider>
+      </body>
+    </html>
   )
 }

@@ -2,53 +2,39 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { batchIngest } from "./events/ingest";
+import {
+  getAccessTokenTtlSeconds,
+  getJwksDocument,
+  getJwtIssuer,
+  signUserAccessToken,
+} from "./lib/jwt";
 
 const http = httpRouter();
 
-// ─── Event ingestion endpoint for extensions ─────────────────────
+function jsonResponse(status: number, body: unknown, origin = "*") {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": origin,
+    },
+  });
+}
+
+const authCorsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Max-Age": "86400",
+};
+
+// Event ingestion endpoint for extensions.
 http.route({
   path: "/events/batch",
   method: "POST",
   handler: batchIngest,
 });
-http.route({
-  path: "/pair",
-  method: "POST",
-  handler: httpAction(async (ctx, req) => {
-    const { pairingCode } = await req.json();
-    try {
-      const result = await ctx.runMutation(internal.users.mutations.pairDevice, { pairingCode });
-      return new Response(JSON.stringify(result), {
-        status: 200,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      });
-    } catch (e: any) {
-      return new Response(JSON.stringify({ error: e.message }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      });
-    }
-  }),
-});
 
-// Preflight for /pair
-http.route({
-  path: "/pair",
-  method: "OPTIONS",
-  handler: httpAction(async () => {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Max-Age": "86400",
-      },
-    });
-  }),
-});
-
-// ─── CORS preflight for extensions ──────────────────────────────
 http.route({
   path: "/events/batch",
   method: "OPTIONS",
@@ -58,126 +44,187 @@ http.route({
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers":
-          "Content-Type, Authorization, Convex-Client",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, Convex-Client",
         "Access-Control-Max-Age": "86400",
       },
     });
   }),
 });
 
-// ─── Clerk Webhook Handler ──────────────────────────────────────
-// Clerk sends webhooks directly to this Convex HTTP action.
-// No Express middleman needed — Convex can call internal mutations.
+// Extension pairing endpoint.
 http.route({
-  path: "/webhooks/clerk",
+  path: "/pair",
   method: "POST",
   handler: httpAction(async (ctx, req) => {
-    // We skip Svix verification here since Convex HTTP actions
-    // have their own security model. For production, add Svix
-    // verification using the raw body.
-    let body: unknown;
     try {
-      body = await req.json();
-    } catch {
-      return new Response(
-        JSON.stringify({ error: "Invalid JSON" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    const event = body as {
-      type: string;
-      data: {
-        id: string;
-        email_addresses?: Array<{ email_address: string }>;
-        first_name?: string | null;
-        last_name?: string | null;
-        image_url?: string | null;
-      };
-    };
-
-    try {
-      switch (event.type) {
-        case "user.created":
-        case "user.updated": {
-          const userData = event.data;
-          const email =
-            userData.email_addresses?.[0]?.email_address ?? "";
-          const displayName =
-            [userData.first_name, userData.last_name]
-              .filter(Boolean)
-              .join(" ") || "User";
-
-          // Construct tokenIdentifier matching Clerk JWT format
-          const tokenIdentifier = `${process.env.CLERK_JWT_ISSUER_DOMAIN}|${userData.id}`;
-
-          await ctx.runMutation(internal.users.mutations.createOrUpdate, {
-            clerkId: userData.id,
-            tokenIdentifier,
-            email,
-            displayName,
-            avatarUrl: userData.image_url ?? undefined,
-          });
-
-          return new Response(
-            JSON.stringify({
-              received: true,
-              event: event.type,
-              userId: userData.id,
-            }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
-          );
-        }
-
-        case "user.deleted": {
-          await ctx.runMutation(internal.users.mutations.deleteByClerkId, {
-            clerkId: event.data.id,
-          });
-
-          return new Response(
-            JSON.stringify({ received: true, event: "user.deleted" }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
-          );
-        }
-
-        default:
-          return new Response(
-            JSON.stringify({
-              received: true,
-              event: event.type,
-              handled: false,
-            }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
-          );
+      const body = (await req.json()) as { pairingCode?: string };
+      const pairingCode = body.pairingCode?.trim();
+      if (!pairingCode) {
+        return jsonResponse(400, { error: "pairingCode is required" });
       }
+
+      const result = await ctx.runMutation(internal.users.mutations.pairDevice, { pairingCode });
+      return jsonResponse(200, result);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unknown error";
-      console.error("Webhook processing error:", message);
-      return new Response(
-        JSON.stringify({ error: message }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
+      const message = error instanceof Error ? error.message : "Unable to pair device";
+      return jsonResponse(400, { error: message });
     }
   }),
 });
 
-// ─── CORS preflight for webhooks ─────────────────────────────────
 http.route({
-  path: "/webhooks/clerk",
+  path: "/pair",
   method: "OPTIONS",
   handler: httpAction(async () => {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Max-Age": "86400",
-      },
+    return new Response(null, { status: 204, headers: authCorsHeaders });
+  }),
+});
+
+// JWT discovery endpoints consumed by Convex customJwt auth provider.
+http.route({
+  path: "/.well-known/jwks.json",
+  method: "GET",
+  handler: httpAction(async () => {
+    return jsonResponse(200, getJwksDocument());
+  }),
+});
+
+http.route({
+  path: "/.well-known/openid-configuration",
+  method: "GET",
+  handler: httpAction(async () => {
+    const issuer = getJwtIssuer().replace(/\/+$/, "");
+    return jsonResponse(200, {
+      issuer,
+      jwks_uri: `${issuer}/.well-known/jwks.json`,
+      id_token_signing_alg_values_supported: ["RS256"],
+      subject_types_supported: ["public"],
+      response_types_supported: ["token"],
+      token_endpoint_auth_methods_supported: ["none"],
+      claims_supported: [
+        "sub",
+        "iss",
+        "aud",
+        "iat",
+        "exp",
+        "email",
+        "name",
+        "picture",
+      ],
     });
   }),
+});
+
+http.route({
+  path: "/auth/register",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    let body: { email?: string; password?: string; displayName?: string };
+    try {
+      body = (await req.json()) as { email?: string; password?: string; displayName?: string };
+    } catch {
+      return jsonResponse(400, { error: "Invalid JSON body" });
+    }
+
+    const email = body.email?.trim();
+    const password = body.password ?? "";
+    const displayName = body.displayName?.trim() || email?.split("@")[0] || "User";
+
+    if (!email || !password) {
+      return jsonResponse(400, { error: "email and password are required" });
+    }
+
+    try {
+      const user = await ctx.runMutation(internal.auth.mutations.registerWithPassword, {
+        email,
+        password,
+        displayName,
+      });
+
+      const signed = await signUserAccessToken({
+        subject: user.subject,
+        email: user.email,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+      });
+
+      return jsonResponse(200, {
+        token: signed.token,
+        expiresAt: signed.expiresAt,
+        expiresIn: getAccessTokenTtlSeconds(),
+        user: {
+          subject: user.subject,
+          email: user.email,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to register";
+      return jsonResponse(400, { error: message });
+    }
+  }),
+});
+
+http.route({
+  path: "/auth/login",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    let body: { email?: string; password?: string };
+    try {
+      body = (await req.json()) as { email?: string; password?: string };
+    } catch {
+      return jsonResponse(400, { error: "Invalid JSON body" });
+    }
+
+    const email = body.email?.trim();
+    const password = body.password ?? "";
+    if (!email || !password) {
+      return jsonResponse(400, { error: "email and password are required" });
+    }
+
+    try {
+      const user = await ctx.runMutation(internal.auth.mutations.loginWithPassword, {
+        email,
+        password,
+      });
+
+      const signed = await signUserAccessToken({
+        subject: user.subject,
+        email: user.email,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+      });
+
+      return jsonResponse(200, {
+        token: signed.token,
+        expiresAt: signed.expiresAt,
+        expiresIn: getAccessTokenTtlSeconds(),
+        user: {
+          subject: user.subject,
+          email: user.email,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to authenticate";
+      const status = message === "Invalid email or password" ? 401 : 400;
+      return jsonResponse(status, { error: message });
+    }
+  }),
+});
+
+http.route({
+  path: "/auth/register",
+  method: "OPTIONS",
+  handler: httpAction(async () => new Response(null, { status: 204, headers: authCorsHeaders })),
+});
+
+http.route({
+  path: "/auth/login",
+  method: "OPTIONS",
+  handler: httpAction(async () => new Response(null, { status: 204, headers: authCorsHeaders })),
 });
 
 export default http;
