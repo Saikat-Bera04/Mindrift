@@ -11,9 +11,13 @@ export async function GET(request: NextRequest) {
   }
 
   const expiresIn = expiresInRaw ? parseInt(expiresInRaw, 10) : undefined;
-  
-  const response = NextResponse.redirect(new URL("/dashboard", request.url));
-  
+
+  // Redirect to onboarding for first-time users, dashboard for returning ones.
+  // The onboarding page itself checks if profile exists and skips if so.
+  const destination = new URL("/dashboard", request.url);
+
+  const response = NextResponse.redirect(destination);
+
   response.cookies.set(
     AUTH_COOKIE_NAME,
     token,

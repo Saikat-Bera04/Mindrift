@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import crypto from "crypto";
+import { passport } from "../middleware/passport.js";
 
 const router = Router();
 
@@ -149,8 +150,6 @@ router.get("/verify", async (req: Request, res: Response) => {
   res.json({ valid: true, message: "Token accepted" });
 });
 
-import { passport } from "../middleware/passport.js";
-
 // ─── GET /auth/google — Initiate Google OAuth ──────────────────────
 router.get(
   "/google",
@@ -160,17 +159,22 @@ router.get(
 // ─── GET /auth/google/callback — Handle OAuth Callback ─────────────
 router.get(
   "/google/callback",
-  passport.authenticate("google", { failureRedirect: process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/sign-in?error=oauth_failed` : "http://localhost:3000/sign-in?error=oauth_failed" }),
+  passport.authenticate("google", {
+    failureRedirect: `${process.env.FRONTEND_URL || "http://localhost:3000"}/sign-in?error=oauth_failed`,
+    session: false,
+  }),
   async (req: Request, res: Response) => {
+    const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:3000";
+
     try {
       const user = req.user as any;
       if (!user) {
         throw new Error("No user profile returned from Google");
       }
 
-      // Extract details
+      // Extract details from the Google profile
       const email = user.emails?.[0]?.value;
-      const displayName = user.displayName;
+      const displayName = user.displayName || "User";
       const avatarUrl = user.photos?.[0]?.value;
       const providerAccountId = user.id;
 
@@ -183,8 +187,12 @@ router.get(
       const internalSecret = process.env.INTERNAL_AUTH_SECRET;
 
       if (!convexUrl || !internalSecret) {
-        throw new Error("Server not fully configured for OAuth");
+        throw new Error(
+          "Server not fully configured for OAuth — missing CONVEX_SITE_URL or INTERNAL_AUTH_SECRET"
+        );
       }
+
+      console.log(`[OAuth] Exchanging Google profile for JWT: ${email}`);
 
       const response = await fetch(`${convexUrl}/auth/oauth-login`, {
         method: "POST",
@@ -199,20 +207,28 @@ router.get(
         }),
       });
 
-      const payload = await response.json();
+      const payload = (await response.json()) as {
+        token?: string;
+        expiresIn?: number;
+        error?: string;
+      };
 
       if (!response.ok || !payload.token) {
+        console.error("[OAuth] Convex /auth/oauth-login failed:", payload);
         throw new Error(payload.error || "Failed to generate JWT from Convex");
       }
 
-      const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:3000";
-      
+      console.log(`[OAuth] JWT issued successfully for ${email}`);
+
       // Redirect to frontend to set cookie and complete login
-      res.redirect(`${frontendUrl}/api/auth/oauth-callback?token=${encodeURIComponent(payload.token)}&expiresIn=${payload.expiresIn || ""}`);
+      res.redirect(
+        `${frontendUrl}/api/auth/oauth-callback?token=${encodeURIComponent(payload.token)}&expiresIn=${payload.expiresIn || ""}`
+      );
     } catch (e: any) {
-      console.error("OAuth Error:", e.message);
-      const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:3000";
-      res.redirect(`${frontendUrl}/sign-in?error=${encodeURIComponent(e.message)}`);
+      console.error("[OAuth] Error:", e.message);
+      res.redirect(
+        `${frontendUrl}/sign-in?error=${encodeURIComponent(e.message)}`
+      );
     }
   }
 );
