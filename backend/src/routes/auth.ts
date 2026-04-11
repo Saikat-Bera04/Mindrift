@@ -149,4 +149,72 @@ router.get("/verify", async (req: Request, res: Response) => {
   res.json({ valid: true, message: "Token accepted" });
 });
 
+import { passport } from "../middleware/passport.js";
+
+// ─── GET /auth/google — Initiate Google OAuth ──────────────────────
+router.get(
+  "/google",
+  passport.authenticate("google", { scope: ["profile", "email"] })
+);
+
+// ─── GET /auth/google/callback — Handle OAuth Callback ─────────────
+router.get(
+  "/google/callback",
+  passport.authenticate("google", { failureRedirect: process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/sign-in?error=oauth_failed` : "http://localhost:3000/sign-in?error=oauth_failed" }),
+  async (req: Request, res: Response) => {
+    try {
+      const user = req.user as any;
+      if (!user) {
+        throw new Error("No user profile returned from Google");
+      }
+
+      // Extract details
+      const email = user.emails?.[0]?.value;
+      const displayName = user.displayName;
+      const avatarUrl = user.photos?.[0]?.value;
+      const providerAccountId = user.id;
+
+      if (!email) {
+        throw new Error("Google profile did not grant email access");
+      }
+
+      // Call our internal Convex endpoint to upsert this user and get a JWT
+      const convexUrl = process.env.CONVEX_SITE_URL;
+      const internalSecret = process.env.INTERNAL_AUTH_SECRET;
+
+      if (!convexUrl || !internalSecret) {
+        throw new Error("Server not fully configured for OAuth");
+      }
+
+      const response = await fetch(`${convexUrl}/auth/oauth-login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: "google",
+          providerAccountId,
+          email,
+          displayName,
+          avatarUrl,
+          secret: internalSecret,
+        }),
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok || !payload.token) {
+        throw new Error(payload.error || "Failed to generate JWT from Convex");
+      }
+
+      const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:3000";
+      
+      // Redirect to frontend to set cookie and complete login
+      res.redirect(`${frontendUrl}/api/auth/oauth-callback?token=${encodeURIComponent(payload.token)}&expiresIn=${payload.expiresIn || ""}`);
+    } catch (e: any) {
+      console.error("OAuth Error:", e.message);
+      const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:3000";
+      res.redirect(`${frontendUrl}/sign-in?error=${encodeURIComponent(e.message)}`);
+    }
+  }
+);
+
 export { router as authRouter };
