@@ -2,12 +2,23 @@
 
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { AICompanion } from "@/components/dashboard/ai-companion";
+import { useEffect } from "react";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) {
+          registration.unregister()
+        }
+      })
+    }
+  }, [])
+
   return (
     <div className="min-h-screen relative flex">
       <DashboardSidebar />

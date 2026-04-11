@@ -1,105 +1,159 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Float, Environment, ContactShadows, OrbitControls } from "@react-three/drei";
-import { MessageCircle, X, Send } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-
-function PlaceholderBot() {
-  const meshRef = useRef<any>(null);
-  useFrame((state) => {
-    const t = state.clock.getElapsedTime();
-    if (meshRef.current) {
-      meshRef.current.rotation.y = Math.sin(t / 4) / 4;
-      meshRef.current.position.y = (1 + Math.sin(t / 1.5)) / 10;
-    }
-  });
-
-  return (
-    <group ref={meshRef}>
-      <mesh position={[0, 0.5, 0]} castShadow>
-        <capsuleGeometry args={[0.5, 1, 4, 16]} />
-        <meshStandardMaterial color="#ff4757" roughness={0.3} metalness={0.8} />
-      </mesh>
-      {/* Eyes */}
-      <mesh position={[-0.2, 0.8, 0.5]}>
-        <sphereGeometry args={[0.1, 16, 16]} />
-        <meshBasicMaterial color="white" />
-      </mesh>
-      <mesh position={[0.2, 0.8, 0.5]}>
-        <sphereGeometry args={[0.1, 16, 16]} />
-        <meshBasicMaterial color="white" />
-      </mesh>
-    </group>
-  );
-}
+import Image from "next/image";
+import { Mic, MicOff, X, Sparkles } from "lucide-react";
+import { motion, useMotionValue, useTransform } from "framer-motion";
 
 export function AICompanion() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{role: 'user'|'bot', text: string}[]>([
-    { role: 'bot', text: 'Hi! I am your AI companion.' }
-  ]);
-  const [input, setInput] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+  
+  // Parallax character effect
+  const cardRef = useRef<HTMLDivElement>(null);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
-    setMessages([...messages, { role: 'user', text: input }]);
-    setInput("");
-    setTimeout(() => {
-      setMessages(prev => [...prev, { role: 'bot', text: 'I am here to guide you through your Santulan journey!' }]);
-    }, 1000);
+  const rotateX = useTransform(y, [-100, 100], [15, -15]);
+  const rotateY = useTransform(x, [-100, 100], [-15, 15]);
+
+  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    x.set(event.clientX - centerX);
+    y.set(event.clientY - centerY);
+  };
+
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+
+  const toggleRecording = () => {
+    setIsRecording(!isRecording);
+    if (!isRecording) {
+      setTimeout(() => {
+        setIsRecording(false);
+        setIsAiSpeaking(true);
+        setTimeout(() => setIsAiSpeaking(false), 3000);
+      }, 2500);
+    } else {
+      setIsAiSpeaking(true);
+      setTimeout(() => setIsAiSpeaking(false), 3000);
+    }
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4">
+    <motion.div 
+      className="fixed z-50 flex flex-col items-end gap-4"
+      drag
+      dragMomentum={false}
+      initial={{ bottom: "1.5rem", right: "1.5rem" }}
+      style={{ touchAction: "none" }}
+    >
       {isOpen && (
-        <div className="w-[320px] h-[480px] bg-panel border border-border/20 shadow-floating rounded-2xl flex flex-col overflow-hidden">
-          <div className="h-[200px] relative bg-gradient-to-b from-background to-panel border-b border-muted-bg">
-            <Canvas camera={{ position: [0, 0, 4], fov: 40 }}>
-              <ambientLight intensity={0.5} />
-              <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={1} castShadow />
-              <Float speed={2} rotationIntensity={1} floatIntensity={1}>
-                <PlaceholderBot />
-              </Float>
-              <ContactShadows position={[0, -0.5, 0]} opacity={0.5} scale={5} blur={2} far={2} />
-              <Environment preset="city" />
-              <OrbitControls enableZoom={false} enablePan={false} maxPolarAngle={Math.PI / 2} minPolarAngle={Math.PI / 2} />
-            </Canvas>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-panel/50">
-            {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`p-2.5 rounded-xl max-w-[85%] text-sm ${m.role === 'user' ? 'bg-accent text-white rounded-br-none' : 'bg-background border border-[#ffffff] text-foreground rounded-bl-none shadow-recessed'}`}>
-                  {m.text}
-                </div>
-              </div>
-            ))}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="w-[320px] h-[480px] bg-panel border-2 border-[#ffffff] shadow-floating rounded-3xl flex flex-col overflow-hidden screw-corners relative cursor-auto"
+          onPointerDownCapture={(e) => e.stopPropagation()} 
+        >
+          {/* Drag Handle Area */}
+          <div className="absolute top-0 left-0 right-0 h-10 flex justify-center z-30 cursor-grab active:cursor-grabbing hover:bg-background/10 transition-colors">
+            <div className="w-12 h-1.5 bg-muted-fg/40 rounded-full mt-3 shadow-recessed" />
           </div>
 
-          <div className="p-3 border-t border-muted-bg bg-background flex gap-2">
-            <Input 
-              value={input} 
-              onChange={(e) => setInput(e.target.value)} 
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Talk to me..." 
-              className="bg-panel border-[#ffffff]" 
-            />
-            <Button size="icon" onClick={handleSend} className="bg-accent hover:bg-accent/90 shrink-0 shadow-floating">
-              <Send className="w-4 h-4" />
-            </Button>
+          <div 
+            ref={cardRef}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            className="flex-1 relative bg-gradient-to-b from-background to-panel flex items-center justify-center overflow-hidden"
+            style={{ perspective: 1000 }}
+          >
+            {/* Ambient Background Glow */}
+            <div className={`absolute inset-0 rounded-[30px] blur-3xl transition-all duration-300 ${
+              isAiSpeaking ? 'bg-accent/30 scale-125 animate-pulse' : 
+              isRecording ? 'bg-green-500/20 scale-110 animate-ping' : 
+              'bg-transparent'
+            }`} />
+
+            <motion.div
+              style={{ rotateX, rotateY, z: 100 }}
+              className={`relative w-[220px] h-[260px] flex items-center justify-center rounded-[40px] border-[6px] shadow-floating overflow-hidden pointer-events-none select-none transition-colors duration-500 ${
+                 isAiSpeaking ? 'border-accent shadow-[0_0_30px_rgba(255,71,87,0.4)]' : 'border-background/50'
+              }`}
+            >
+              <Image 
+                src="/ai_voice_avatar.png" 
+                alt="Aura" 
+                fill
+                style={{ objectFit: 'cover' }}
+                draggable="false"
+                className={`scale-110 pointer-events-none transform transition-transform duration-[2s] ${
+                  isAiSpeaking ? 'scale-125' : 'animate-[float_6s_ease-in-out_infinite]'
+                }`}
+              />
+              <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.05)_50%)] bg-[length:100%_4px] mix-blend-overlay z-10 pointer-events-none"></div>
+            </motion.div>
           </div>
-        </div>
+          
+          {/* Status and Visualizer */}
+          <div className="h-12 bg-panel/50 border-t border-muted-bg flex items-center justify-center gap-2">
+            {(isRecording || isAiSpeaking) && (
+               <div className="flex items-center gap-1">
+                 {[...Array(6)].map((_, i) => (
+                   <motion.div
+                     key={i}
+                     initial={{ height: "4px" }}
+                     animate={{ height: isAiSpeaking ? ["4px", "24px", "8px", "32px", "4px"] : ["4px", "16px", "6px", "20px", "4px"] }}
+                     transition={{ duration: 0.4, repeat: Infinity, repeatType: "reverse", delay: i * 0.1 }}
+                     className={`w-1.5 rounded-full ${isAiSpeaking ? 'bg-accent' : 'bg-green-500'}`}
+                   />
+                 ))}
+               </div>
+            )}
+            {!(isRecording || isAiSpeaking) && (
+              <span className="text-xs font-mono font-bold text-muted-fg uppercase tracking-widest">Standing By</span>
+            )}
+          </div>
+
+          <div className="p-4 border-t border-[#ffffff] bg-background flex flex-col items-center justify-center gap-3 pointer-events-auto">
+            <button 
+              onClick={toggleRecording}
+              disabled={isAiSpeaking}
+              className={`
+                relative w-16 h-16 rounded-full flex items-center justify-center shadow-floating border-2 transition-all duration-300
+                ${isRecording 
+                  ? 'bg-red-500 border-red-400 text-white shadow-[0_0_20px_rgba(239,68,68,0.5)] scale-110' 
+                  : isAiSpeaking 
+                    ? 'bg-muted-bg border-transparent text-muted-fg opacity-50 cursor-not-allowed'
+                    : 'bg-panel border-accent text-accent hover:bg-accent hover:text-white hover:scale-105'
+                }
+              `}
+            >
+              {isRecording ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+              {isRecording && (
+                <div className="absolute inset-0 rounded-full border-4 border-red-500 animate-ping opacity-30"></div>
+              )}
+            </button>
+            <p className="text-xs font-bold font-mono uppercase tracking-widest text-[#2d3436]">
+               {isAiSpeaking ? 'Aura responding' : isRecording ? 'Listening...' : 'Voice mode'}
+            </p>
+          </div>
+        </motion.div>
       )}
 
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-14 h-14 rounded-full bg-background border-2 border-accent shadow-[0_4px_12px_rgba(255,71,87,0.3)] flex items-center justify-center text-accent hover:scale-105 transition-transform"
+        className="w-16 h-16 rounded-full bg-background border-2 border-[#ffffff] shadow-floating flex items-center justify-center text-accent transition-transform cursor-pointer hover:shadow-[0_4px_16px_rgba(255,71,87,0.4)] relative group"
+        onPointerDownCapture={(e) => e.stopPropagation()} 
       >
-        {isOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6 fill-current" />}
+        <div className="absolute inset-0 rounded-full border border-accent/20 bg-accent/5 scale-110 opacity-0 group-hover:opacity-100 group-hover:scale-125 transition-all duration-300" />
+        {isOpen ? <X className="w-7 h-7" /> : <Sparkles className="w-7 h-7 fill-current" />}
       </button>
-    </div>
+    </motion.div>
   );
 }

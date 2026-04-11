@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard, Lightbulb, Activity, BarChart3, Settings,
-  ChevronLeft, ChevronRight, Activity as Sparkles, LogOut, Menu, X
+  ChevronLeft, ChevronRight, Activity as Sparkles, LogOut, Menu, X, MessageCircle
 } from "lucide-react";
 import { PhysicalButton } from "@/components/ui/mechanics";
 
@@ -14,6 +14,7 @@ const navItems = [
   { href: "/insights", label: "Insights", icon: Lightbulb },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/chat", label: "Chatbot", icon: MessageCircle },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

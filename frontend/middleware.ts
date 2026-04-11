@@ -6,7 +6,8 @@ const isProtectedRoute = createRouteMatcher([
   '/insights(.*)',
   '/activity(.*)',
   '/reports(.*)',
-  '/settings(.*)'
+  '/settings(.*)',
+  '/chat(.*)'
 ])
 
 const isPublicRoute = createRouteMatcher(['/'])
