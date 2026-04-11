@@ -1,0 +1,267 @@
+import { Router, Request, Response } from "express";
+import { requireAuth } from "../middleware/clerk.js";
+
+export const voiceRouter = Router();
+
+const SARVAM_API_BASE = "https://api.sarvam.ai";
+
+// POST /voice/stt - Speech to Text using Sarvam AI
+voiceRouter.post("/stt", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { audioBase64, languageCode = "en-IN" } = req.body;
+
+    if (!audioBase64) {
+      return res.status(400).json({ error: "audioBase64 is required" });
+    }
+
+    const apiKey = process.env.SARVAM_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "Sarvam API key not configured" });
+    }
+
+    const response = await fetch(`${SARVAM_API_BASE}/speech-to-text`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "API-Subscription-Key": apiKey,
+      },
+      body: JSON.stringify({
+        audio: audioBase64,
+        language_code: languageCode,
+        model: "saarika:v2", // Sarvam's STT model
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Sarvam STT error:", errorText);
+      return res.status(response.status).json({ 
+        error: "STT processing failed", 
+        details: errorText 
+      });
+    }
+
+    const data = await response.json();
+    res.json({
+      success: true,
+      text: data.transcript || data.text || "",
+      languageCode,
+    });
+  } catch (error) {
+    console.error("Error in STT:", error);
+    res.status(500).json({ error: "Failed to process speech-to-text" });
+  }
+});
+
+// POST /voice/tts - Text to Speech using Sarvam AI
+voiceRouter.post("/tts", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { text, languageCode = "en-IN", voice = "meera" } = req.body;
+
+    if (!text) {
+      return res.status(400).json({ error: "text is required" });
+    }
+
+    const apiKey = process.env.SARVAM_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "Sarvam API key not configured" });
+    }
+
+    const response = await fetch(`${SARVAM_API_BASE}/text-to-speech`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "API-Subscription-Key": apiKey,
+      },
+      body: JSON.stringify({
+        text,
+        target_language_code: languageCode,
+        speaker: voice, // Available voices: meera, pavithra, mukesh, arjun, arvind, amol, amartya, diya
+        pitch: 0,
+        pace: 1.0,
+        loudness: 1.0,
+        speech_sample_rate: 22050,
+        enable_preprocessing: true,
+        model: "bulbul:v1",
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Sarvam TTS error:", errorText);
+      return res.status(response.status).json({ 
+        error: "TTS processing failed", 
+        details: errorText 
+      });
+    }
+
+    const data = await response.json();
+    
+    // Sarvam returns audio as base64 encoded string
+    res.json({
+      success: true,
+      audioBase64: data.audios?.[0] || data.audio || "",
+      languageCode,
+      voice,
+      text,
+    });
+  } catch (error) {
+    console.error("Error in TTS:", error);
+    res.status(500).json({ error: "Failed to process text-to-speech" });
+  }
+});
+
+// GET /voice/voices - Get available voices
+voiceRouter.get("/voices", requireAuth, (_req: Request, res: Response) => {
+  const voices = [
+    { id: "meera", name: "Meera", language: "hi-IN", gender: "female", description: "Warm and friendly" },
+    { id: "pavithra", name: "Pavithra", language: "ta-IN", gender: "female", description: "Soft and clear" },
+    { id: "mukesh", name: "Mukesh", language: "hi-IN", gender: "male", description: "Professional and authoritative" },
+    { id: "arjun", name: "Arjun", language: "hi-IN", gender: "male", description: "Youthful and energetic" },
+    { id: "arvind", name: "Arvind", language: "ta-IN", gender: "male", description: "Calm and composed" },
+    { id: "amol", name: "Amol", language: "mr-IN", gender: "male", description: "Friendly and approachable" },
+    { id: "amartya", name: "Amartya", language: "bn-IN", gender: "male", description: "Scholarly and articulate" },
+    { id: "diya", name: "Diya", language: "gu-IN", gender: "female", description: "Cheerful and lively" },
+  ];
+
+  res.json({ voices });
+});
+
+// POST /voice/chat - Full voice conversation (STT -> AI -> TTS)
+voiceRouter.post("/chat", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { audioBase64, languageCode = "en-IN", voice = "meera", conversationHistory = [] } = req.body;
+
+    if (!audioBase64) {
+      return res.status(400).json({ error: "audioBase64 is required" });
+    }
+
+    const apiKey = process.env.SARVAM_API_KEY;
+
+    if (!apiKey) {
+      return res.status(500).json({ error: "Sarvam API key not configured" });
+    }
+
+    // Step 1: Convert speech to text
+    const sttResponse = await fetch(`${SARVAM_API_BASE}/speech-to-text`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "API-Subscription-Key": apiKey,
+      },
+      body: JSON.stringify({
+        audio: audioBase64,
+        language_code: languageCode,
+        model: "saarika:v2",
+      }),
+    });
+
+    if (!sttResponse.ok) {
+      const errorText = await sttResponse.text();
+      console.error("Sarvam STT error:", errorText);
+      return res.status(sttResponse.status).json({ error: "Speech recognition failed" });
+    }
+
+    const sttData = await sttResponse.json();
+    const userText = sttData.transcript || sttData.text || "";
+
+    if (!userText.trim()) {
+      return res.status(400).json({ error: "No speech detected" });
+    }
+
+    // Step 2: Get AI response (using Gemini or fallback)
+    let aiResponse = "";
+    const geminiKey = process.env.GEMINI_API_KEY;
+    
+    if (geminiKey) {
+      try {
+        // Build conversation context for Gemini
+        const systemPrompt = "You are Aura, a compassionate mental wellness AI companion. Provide supportive, empathetic responses. Keep responses concise (2-3 sentences) for voice interaction.";
+        
+        // Convert conversation history to Gemini format
+        const geminiContents = [
+          { role: "user", parts: [{ text: systemPrompt }] },
+          { role: "model", parts: [{ text: "I understand. I'm Aura, here to provide compassionate support for your mental wellness journey." }] },
+          ...conversationHistory.flatMap((msg: any) => [
+            { role: msg.role === "assistant" ? "model" : "user", parts: [{ text: msg.content }] }
+          ]),
+          { role: "user", parts: [{ text: userText }] }
+        ];
+
+        const geminiResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: geminiContents,
+              generationConfig: {
+                maxOutputTokens: 150,
+                temperature: 0.7,
+              },
+            }),
+          }
+        );
+
+        if (geminiResponse.ok) {
+          const geminiData = await geminiResponse.json();
+          aiResponse = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        } else {
+          const errorText = await geminiResponse.text();
+          console.error("Gemini API error:", errorText);
+        }
+      } catch (aiError) {
+        console.error("AI response error:", aiError);
+      }
+    }
+
+    // Fallback response if AI fails
+    if (!aiResponse) {
+      aiResponse = "I'm here to support you. Thank you for sharing that with me. Would you like to talk more about how you're feeling?";
+    }
+
+    // Step 3: Convert AI response to speech
+    const ttsResponse = await fetch(`${SARVAM_API_BASE}/text-to-speech`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "API-Subscription-Key": apiKey,
+      },
+      body: JSON.stringify({
+        text: aiResponse,
+        target_language_code: languageCode,
+        speaker: voice,
+        pitch: 0,
+        pace: 1.0,
+        loudness: 1.0,
+        speech_sample_rate: 22050,
+        enable_preprocessing: true,
+        model: "bulbul:v1",
+      }),
+    });
+
+    if (!ttsResponse.ok) {
+      const errorText = await ttsResponse.text();
+      console.error("Sarvam TTS error:", errorText);
+      return res.status(ttsResponse.status).json({ 
+        error: "Text-to-speech failed",
+        text: aiResponse,
+        transcript: userText,
+      });
+    }
+
+    const ttsData = await ttsResponse.json();
+
+    res.json({
+      success: true,
+      transcript: userText,
+      response: aiResponse,
+      audioBase64: ttsData.audios?.[0] || ttsData.audio || "",
+      languageCode,
+      voice,
+    });
+  } catch (error) {
+    console.error("Error in voice chat:", error);
+    res.status(500).json({ error: "Failed to process voice conversation" });
+  }
+});
