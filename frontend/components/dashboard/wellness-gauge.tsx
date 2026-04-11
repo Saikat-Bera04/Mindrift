@@ -81,10 +81,10 @@ export function WellnessGauge({ score, size = 260, label = "SYSTEM SCORE" }: Wel
             return (
               <line
                 key={i}
-                x1={center + innerR * Math.cos(rad)}
-                y1={center + innerR * Math.sin(rad)}
-                x2={center + outerR * Math.cos(rad)}
-                y2={center + outerR * Math.sin(rad)}
+                x1={Number((center + innerR * Math.cos(rad)).toFixed(3))}
+                y1={Number((center + innerR * Math.sin(rad)).toFixed(3))}
+                x2={Number((center + outerR * Math.cos(rad)).toFixed(3))}
+                y2={Number((center + outerR * Math.sin(rad)).toFixed(3))}
                 stroke={isActive ? mainColor : 'rgba(0,0,0,0.1)'}
                 strokeWidth={isLong ? 3 : 1.5}
                 strokeLinecap="round"
