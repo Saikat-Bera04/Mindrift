@@ -1,6 +1,7 @@
 "use client";
 
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
+import { AICompanion } from "@/components/dashboard/ai-companion";
 
 export default function DashboardLayout({
   children,
@@ -17,6 +18,7 @@ export default function DashboardLayout({
           {children}
         </div>
       </main>
+      <AICompanion />
     </div>
   );
 }

@@ -17,7 +17,7 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-import { useUser } from "@clerk/nextjs";
+import { useUser, SignOutButton } from "@clerk/nextjs";
 
 export function DashboardSidebar() {
   const pathname = usePathname();
@@ -103,7 +103,7 @@ export function DashboardSidebar() {
         </nav>
 
         {/* User section */}
-        <div className="relative p-6 pt-0">
+        <div className="relative p-6 pt-0 flex flex-col gap-4">
           <div className={`p-4 rounded-xl bg-background shadow-recessed flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
             <div className="w-10 h-10 shrink-0 rounded-full bg-background shadow-floating border border-[#ffffff] flex items-center justify-center text-sm font-bold text-foreground uppercase">
               {initials}
@@ -115,6 +115,12 @@ export function DashboardSidebar() {
               </div>
             )}
           </div>
+          <SignOutButton redirectUrl="/">
+            <button className={`flex items-center gap-3 w-full p-3 rounded-xl bg-background shadow-floating border border-[#ffffff] text-accent hover:bg-accent/10 transition-colors ${collapsed ? "justify-center" : "px-4"}`}>
+              <LogOut className="w-5 h-5" />
+              {!collapsed && <span className="text-sm font-bold uppercase tracking-wide">Logout</span>}
+            </button>
+          </SignOutButton>
         </div>
 
         <button

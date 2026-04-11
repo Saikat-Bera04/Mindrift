@@ -2,6 +2,7 @@
 
 import { Search, Bell } from "lucide-react";
 import { RecessedInput, PhysicalButton } from "@/components/ui/mechanics";
+import { ManualEntryForm } from "@/components/dashboard/manual-entry";
 
 export function DashboardHeader({ title, subtitle }: { title: string, subtitle?: string }) {
   const today = new Date().toLocaleDateString('en-US', {
@@ -33,6 +34,8 @@ export function DashboardHeader({ title, subtitle }: { title: string, subtitle?:
           <Bell className="w-5 h-5 text-muted-fg" />
           <span className="absolute top-3 right-3 w-2 h-2 rounded-full bg-accent shadow-glow" />
         </PhysicalButton>
+
+        <ManualEntryForm />
       </div>
     </header>
   );
