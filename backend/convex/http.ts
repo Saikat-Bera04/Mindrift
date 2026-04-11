@@ -227,4 +227,64 @@ http.route({
   handler: httpAction(async () => new Response(null, { status: 204, headers: authCorsHeaders })),
 });
 
+http.route({
+  path: "/auth/oauth-login",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    let body: {
+      provider?: string;
+      providerAccountId?: string;
+      email?: string;
+      displayName?: string;
+      avatarUrl?: string;
+      secret?: string;
+    };
+    try {
+      body = (await req.json()) as any;
+    } catch {
+      return jsonResponse(400, { error: "Invalid JSON body" });
+    }
+
+    if (body.secret !== process.env.INTERNAL_AUTH_SECRET) {
+      return jsonResponse(403, { error: "Invalid internal auth secret" });
+    }
+
+    if (!body.email || !body.provider || !body.providerAccountId) {
+      return jsonResponse(400, { error: "Missing required oauth fields" });
+    }
+
+    try {
+      const user = await ctx.runMutation(internal.auth.oauth.loginWithOAuth, {
+        provider: body.provider,
+        providerAccountId: body.providerAccountId,
+        email: body.email,
+        displayName: body.displayName || "User",
+        avatarUrl: body.avatarUrl,
+      });
+
+      const signed = await signUserAccessToken({
+        subject: user.subject,
+        email: user.email,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+      });
+
+      return jsonResponse(200, {
+        token: signed.token,
+        expiresAt: signed.expiresAt,
+        expiresIn: getAccessTokenTtlSeconds(),
+        user: {
+          subject: user.subject,
+          email: user.email,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to authenticate via OAuth";
+      return jsonResponse(400, { error: message });
+    }
+  }),
+});
+
 export default http;

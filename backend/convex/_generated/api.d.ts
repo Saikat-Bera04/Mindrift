@@ -9,6 +9,7 @@
  */
 
 import type * as auth_mutations from "../auth/mutations.js";
+import type * as auth_oauth from "../auth/oauth.js";
 import type * as crons from "../crons.js";
 import type * as events_cleanup from "../events/cleanup.js";
 import type * as events_ingest from "../events/ingest.js";
@@ -45,6 +46,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "auth/mutations": typeof auth_mutations;
+  "auth/oauth": typeof auth_oauth;
   crons: typeof crons;
   "events/cleanup": typeof events_cleanup;
   "events/ingest": typeof events_ingest;

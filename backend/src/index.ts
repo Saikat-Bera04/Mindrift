@@ -22,7 +22,22 @@ app.use(
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
+import session from "express-session";
+import { passport } from "./middleware/passport.js";
+
 app.use(createGeneralLimiter());
+
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "fallback_mindrift_secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: process.env.NODE_ENV === "production" },
+  })
+);
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.use("/auth", authRouter);
 app.use("/health", healthRouter);
