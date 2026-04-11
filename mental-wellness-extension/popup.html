@@ -1,0 +1,540 @@
+<!-- popup.html -->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Mental Wellness Tracker</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 360px;
+            max-height: 600px;
+            overflow-y: auto;
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #0f0f11;
+            color: #e8e8e8;
+            padding: 14px;
+            scrollbar-width: thin;
+            scrollbar-color: #2a2a2a transparent;
+        }
+
+        /* ── Header ── */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .header-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #4ade80;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .header-sub {
+            font-size: 11px;
+            color: #444;
+        }
+
+        /* ── Now Active card ── */
+        .now-card {
+            background: linear-gradient(135deg, #0d1f14, #111827);
+            border: 1px solid #1a3a22;
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .now-icon {
+            font-size: 18px;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .now-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .now-label {
+            font-size: 9px;
+            color: #4ade80;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 3px;
+        }
+
+        .now-title {
+            font-size: 12px;
+            color: #fff;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .now-domain {
+            font-size: 10px;
+            color: #555;
+            margin-top: 2px;
+        }
+
+        /* ── Score wrap ── */
+        .score-wrap {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 12px;
+            padding: 10px 12px;
+            background: #161618;
+            border-radius: 10px;
+            border: 1px solid #222;
+        }
+
+        .score-ring {
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            border: 4px solid #4ade80;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .score-info {
+            flex: 1;
+        }
+
+        .score-label {
+            font-size: 10px;
+            color: #555;
+            margin-bottom: 3px;
+        }
+
+        .score-desc {
+            font-size: 11px;
+            color: #bbb;
+            line-height: 1.4;
+        }
+
+        /* ── Stats grid ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .stat-card {
+            background: #161618;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 9px 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 3px;
+        }
+
+        .stat-label {
+            font-size: 9px;
+            color: #555;
+        }
+
+        /* ── Section ── */
+        .section {
+            margin-bottom: 12px;
+        }
+
+        .section-title {
+            font-size: 9px;
+            font-weight: 600;
+            color: #444;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 7px;
+        }
+
+        /* ── Site bars ── */
+        .site-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 5px 0;
+        }
+
+        .site-name {
+            width: 100px;
+            font-size: 11px;
+            color: #ccc;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .bar-track {
+            flex: 1;
+            height: 4px;
+            background: #1e1e22;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            background: linear-gradient(90deg, #4ade80, #22d3ee);
+        }
+
+        .site-time {
+            font-size: 10px;
+            color: #555;
+            width: 28px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        /* ── Search items ── */
+        .search-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 6px 8px;
+            background: #161618;
+            border: 1px solid #1e1e22;
+            border-radius: 7px;
+            margin-bottom: 5px;
+        }
+
+        .search-engine {
+            font-size: 9px;
+            font-weight: 600;
+            padding: 2px 5px;
+            border-radius: 4px;
+            background: #1a1f2e;
+            color: #60a5fa;
+            white-space: nowrap;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .search-query {
+            font-size: 11px;
+            color: #ddd;
+            flex: 1;
+        }
+
+        .search-time {
+            font-size: 9px;
+            color: #444;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        /* ── Browsing log ── */
+        .browse-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 6px 8px;
+            background: #161618;
+            border: 1px solid #1e1e22;
+            border-radius: 7px;
+            margin-bottom: 5px;
+        }
+
+        .browse-category {
+            font-size: 9px;
+            font-weight: 600;
+            padding: 2px 5px;
+            border-radius: 4px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .cat-Social {
+            background: #1a1f2e;
+            color: #818cf8;
+        }
+
+        .cat-Productivity {
+            background: #1e2a1a;
+            color: #4ade80;
+        }
+
+        .cat-Educational {
+            background: #1a2328;
+            color: #38bdf8;
+        }
+
+        .cat-News {
+            background: #2a1e1e;
+            color: #f87171;
+        }
+
+        .cat-Shopping {
+            background: #2a2218;
+            color: #fb923c;
+        }
+
+        .cat-Development {
+            background: #231a2e;
+            color: #a78bfa;
+        }
+
+        .cat-Entertainment {
+            background: #2a2218;
+            color: #facc15;
+        }
+
+        .cat-Gaming {
+            background: #1a2028;
+            color: #22d3ee;
+        }
+
+        .cat-Health {
+            background: #1a2a1e;
+            color: #86efac;
+        }
+
+        .cat-Other {
+            background: #1e1e1e;
+            color: #666;
+        }
+
+        .browse-title {
+            font-size: 11px;
+            color: #ccc;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .browse-time {
+            font-size: 9px;
+            color: #444;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        /* ── Video items ── */
+        .video-item {
+            background: #161618;
+            border: 1px solid #1e1e22;
+            border-radius: 7px;
+            padding: 7px 9px;
+            margin-bottom: 5px;
+        }
+
+        .video-title {
+            font-size: 11px;
+            color: #ddd;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+
+        .video-meta {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .video-category {
+            font-size: 9px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 99px;
+            background: #1e2a1e;
+            color: #4ade80;
+        }
+
+        .video-time {
+            font-size: 9px;
+            color: #444;
+        }
+
+        /* ── Empty & buttons ── */
+        .empty-msg {
+            font-size: 11px;
+            color: #333;
+            text-align: center;
+            padding: 8px 0;
+        }
+
+        .actions {
+            margin-top: 4px;
+        }
+
+        .sync-btn {
+            width: 100%;
+            padding: 9px;
+            background: #1a1a2e;
+            border: 1px solid #2a2a40;
+            color: #aaa;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: 'Inter', sans-serif;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .sync-btn:hover {
+            background: #252545;
+            color: #fff;
+        }
+
+        .clear-btn {
+            width: 100%;
+            margin-top: 6px;
+            padding: 7px;
+            background: transparent;
+            border: 1px solid #2a1a1a;
+            color: #553333;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 11px;
+            font-family: 'Inter', sans-serif;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .clear-btn:hover {
+            background: #2a1a1a;
+            color: #f87171;
+        }
+
+        /* ── Live dot ── */
+        .live-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: #4ade80;
+            border-radius: 50%;
+            margin-right: 4px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-title"><span class="live-dot"></span>Wellness Tracker</div>
+        <div class="header-sub" id="header-date">Today</div>
+    </div>
+
+    <!-- Currently Active Page -->
+    <div class="now-card" id="now-card">
+        <div class="now-icon">🌐</div>
+        <div class="now-info">
+            <div class="now-label">Active Right Now</div>
+            <div class="now-title" id="now-title">Loading...</div>
+            <div class="now-domain" id="now-domain"></div>
+        </div>
+    </div>
+
+    <!-- Wellness Score -->
+    <div class="score-wrap">
+        <div id="score-ring" class="score-ring">–</div>
+        <div class="score-info">
+            <div class="score-label">Wellness Score</div>
+            <div class="score-desc" id="score-desc">Analyzing your data...</div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value" id="screen-time">–</div>
+            <div class="stat-label">Screen time</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="tab-switches">–</div>
+            <div class="stat-label">Tab switches</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="idle-breaks">–</div>
+            <div class="stat-label">Idle breaks</div>
+        </div>
+    </div>
+
+    <!-- Top Sites -->
+    <div class="section">
+        <div class="section-title">⏱ Top Sites by Time</div>
+        <div id="sites-list">
+            <div class="empty-msg">Browse a bit to see data</div>
+        </div>
+    </div>
+
+    <!-- Recent Searches -->
+    <div class="section">
+        <div class="section-title">🔍 Recent Searches</div>
+        <div id="search-list">
+            <div class="empty-msg">No searches tracked yet</div>
+        </div>
+    </div>
+
+    <!-- Recent Browsing -->
+    <div class="section">
+        <div class="section-title">🌐 Recent Pages Visited</div>
+        <div id="browse-list">
+            <div class="empty-msg">Visit some pages to see history</div>
+        </div>
+    </div>
+
+    <!-- YouTube Videos -->
+    <div class="section">
+        <div class="section-title">▶ YouTube Videos Watched</div>
+        <div id="video-list">
+            <div class="empty-msg">Visit YouTube to see tracked videos</div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+        <button class="sync-btn" id="sync-btn">↑ Sync now</button>
+        <button class="clear-btn" id="clear-btn">🗑 Clear all data</button>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>
