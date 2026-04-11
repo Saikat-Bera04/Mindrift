@@ -1,7 +1,7 @@
-// background.js — Real-time browsing tracker connected to Convex
+// background.js - Real-time browsing tracker connected to Mindrift API
 
 // ─── Configuration ──────────────────────────────────────────────
-const CONVEX_SITE_URL = "https://diligent-echidna-278.convex.site";
+const API_BASE_URL = "http://localhost:3001";
 const SYNC_INTERVAL_MINUTES = 5;
 
 const sessionStart = Date.now();
@@ -53,7 +53,7 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
         const tabSwitches = (data.tab_switches || 0) + 1;
         const pending = data.pending_events || [];
         
-        // Queue tab_switch event for Convex
+        // Queue tab_switch event for backend sync
         pending.push({
             type: "tab_switch",
             source: "chrome",
@@ -132,28 +132,28 @@ chrome.idle.onStateChanged.addListener((state) => {
 // ── Periodic flush every 30 seconds ──
 chrome.alarms.create("periodic_flush", { periodInMinutes: 0.5 });
 
-// ── Sync to Convex every N minutes ──
-chrome.alarms.create("convex_sync", { periodInMinutes: SYNC_INTERVAL_MINUTES });
+// ── Sync to Mindrift API every N minutes ──
+chrome.alarms.create("mindrift_sync", { periodInMinutes: SYNC_INTERVAL_MINUTES });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === "periodic_flush") {
         flushActiveTime();
         activeStartTime = Date.now();
     }
-    if (alarm.name === "convex_sync") {
-        syncToConvex();
+    if (alarm.name === "mindrift_sync") {
+        syncToMindrift();
     }
 });
 
-// ── Sync pending events to Convex backend ──
-async function syncToConvex() {
+// ── Sync pending events to Mindrift backend ──
+async function syncToMindrift() {
     return new Promise((resolve) => {
-        chrome.storage.local.get(["pending_events", "convex_auth_token", "screen_time"], async (data) => {
+        chrome.storage.local.get(["pending_events", "mindrift_auth_token", "screen_time"], async (data) => {
             const pending = data.pending_events || [];
-            const token = data.convex_auth_token;
+            const token = data.mindrift_auth_token;
 
             if (!token) {
-                console.log("⚠️ No auth token — skipping Convex sync. Pair extension first.");
+                console.log("No auth token - skipping sync. Pair extension first.");
                 resolve();
                 return;
             }
@@ -181,7 +181,7 @@ async function syncToConvex() {
             ].slice(0, 100); // Max 100 per batch
 
             try {
-                const response = await fetch(`${CONVEX_SITE_URL}/events/batch`, {
+                const response = await fetch(`${API_BASE_URL}/extension/events/batch`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -193,14 +193,14 @@ async function syncToConvex() {
                 const result = await response.json();
 
                 if (response.ok) {
-                    console.log(`✅ Convex sync: ${result.inserted} inserted, ${result.duplicates} duplicates`);
+                    console.log(`Mindrift sync: ${result.inserted} inserted, ${result.duplicates} duplicates`);
                     // Clear synced events
                     chrome.storage.local.set({ pending_events: [] });
                 } else {
-                    console.error("❌ Convex sync failed:", result.error);
+                    console.error("Mindrift sync failed:", result.error);
                 }
             } catch (err) {
-                console.error("❌ Convex sync network error:", err.message);
+                console.error("Mindrift sync network error:", err.message);
             }
 
             resolve();
@@ -236,15 +236,15 @@ async function flushToBackend() {
 // ── Message handlers ──
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.action === "flush_now") {
-        syncToConvex().then(() => {
+        syncToMindrift().then(() => {
             flushToBackend().then(() => sendResponse({ ok: true }));
         });
         return true;
     }
 
     if (msg.action === "set_auth_token") {
-        chrome.storage.local.set({ convex_auth_token: msg.token }, () => {
-            console.log("🔐 Auth token saved for Convex sync");
+        chrome.storage.local.set({ mindrift_auth_token: msg.token }, () => {
+            console.log("Auth token saved for Mindrift sync");
             sendResponse({ ok: true });
         });
         return true;
@@ -264,7 +264,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 timestamp: msg.data.timestamp
             });
 
-            // Queue as Convex event
+            // Queue as backend event
             pending.push({
                 type: "session_start",
                 source: "chrome",
@@ -323,7 +323,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
 });
 
-// ── Map content categories to Convex event categories ──
+// ── Map content categories to backend event categories ──
 function mapCategory(contentCategory) {
     const map = {
         "Social Media": "social",

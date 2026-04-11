@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { DashboardHeader } from "@/components/dashboard/header";
 import { WellnessGauge } from "@/components/dashboard/wellness-gauge";
 import { StatsCard } from "@/components/dashboard/stats-card";
@@ -14,16 +14,48 @@ import { Clock, Activity, Heart, Briefcase, Moon } from "lucide-react";
 const moodColors = ['#ff4757', '#f97316', '#f59e0b', '#10b981', '#06b6d4'];
 
 export default function DashboardPage() {
-  const dashboardData = useQuery(api.users.queries.getDashboard);
-  const profile = useQuery(api.users.queries.getOnboardingProfile);
-  const user = useQuery(api.users.queries.getMe);
+  const { getToken } = useAuth();
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = await getToken();
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+
+        const meRes = await fetch(`${backendUrl}/api/users/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (meRes.ok) {
+          const me = await meRes.json();
+          setUser(me);
+          setProfile({
+            age: me.age,
+            bmi: me.bmi ?? (me.height && me.weight ? Number((me.weight / ((me.height / 100) ** 2)).toFixed(1)) : null),
+            status: me.currentStatus,
+            sleepHours: me.sleepHours,
+          });
+        }
+
+        // Fallback to dummy data for dashboard
+        setDashboardData({ latestScore: { overall: wellnessScore } });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [getToken]);
 
   const displayName = user?.displayName || "Operator";
-  const level = user?.level ?? 1;
-  const xp = user?.xp ?? 0;
-  const streak = user?.currentStreak ?? 0;
+  const level = user?.gamification?.level ?? 1;
+  const xp = user?.gamification?.xp ?? 0;
+  const streak = user?.gamification?.streak ?? 0;
 
-  // Use real score from Convex or fallback to dummy
+  // Use real score or fallback to dummy
   const overallScore = dashboardData?.latestScore?.overall ?? wellnessScore;
 
   // Build stats from real data + profile

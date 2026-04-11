@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useState, useEffect } from "react";
+import { useAuth } from "@clerk/nextjs";
+import Link from "next/link";
 import { DashboardHeader } from "@/components/dashboard/header";
 import { User, Bell, Palette, Shield, Heart, Activity } from "lucide-react";
 import { MechanicalCard, PhysicalButton, RecessedInput } from "@/components/ui/mechanics";
+import { getBackendOrigin } from "@/lib/backend-url";
 
 const sections = [
   { id: 'profile', label: 'USER PROFILE', icon: User },
@@ -31,9 +32,43 @@ export default function SettingsPage() {
     dailyReminder: true, weeklyReport: true, insightAlerts: true, streakReminder: true,
   });
   const [dataSharing, setDataSharing] = useState(false);
-  
-  const dbUser = useQuery(api.users.queries.getMe);
-  const profile = useQuery(api.users.queries.getOnboardingProfile);
+  const [dbUser, setDbUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const { getToken } = useAuth();
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const token = await getToken();
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+        const res = await fetch(`${backendUrl}/api/users/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setDbUser(data);
+          setProfile({
+            age: data.age,
+            height: data.height,
+            weight: data.weight,
+            bmi: data.bmi ?? (data.height && data.weight ? Number((data.weight / ((data.height / 100) ** 2)).toFixed(1)) : null),
+            bloodPressure: data.bloodPressure,
+            status: data.currentStatus,
+            jobStudyDescription: data.jobStudyDescription,
+            relationshipStatus: data.relationshipStatus,
+            workingHours: data.workingHours,
+            sleepHours: data.sleepHours,
+            likes: data.likes,
+            dislikes: data.dislikes,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch user:', error);
+      }
+    };
+
+    fetchUser();
+  }, [getToken]);
 
   const nameForInitials = dbUser?.displayName || dbUser?.email || "User";
   const initials = nameForInitials
@@ -82,7 +117,7 @@ export default function SettingsPage() {
                   <div>
                     <p className="text-lg font-bold text-foreground">{dbUser?.displayName || "User"}</p>
                     <p className="text-xs font-mono text-muted-fg uppercase tracking-widest">
-                      Level {dbUser?.level ?? 1} • {dbUser?.xp ?? 0} XP • Streak: {dbUser?.currentStreak ?? 0}d
+                      Level {dbUser?.gamification?.level ?? 1} • {dbUser?.gamification?.xp ?? 0} XP • Streak: {dbUser?.gamification?.streak ?? 0}d
                     </p>
                   </div>
                 </div>
@@ -101,7 +136,9 @@ export default function SettingsPage() {
                 </div>
                 
                 <div className="pt-4 border-t border-muted-bg shadow-[0_1px_0_#ffffff] flex justify-end">
-                  <PhysicalButton>SAVE PARAMETERS</PhysicalButton>
+                  <Link href="/onboarding">
+                    <PhysicalButton>EDIT PROFILE</PhysicalButton>
+                  </Link>
                 </div>
               </div>
             )}
@@ -166,12 +203,25 @@ export default function SettingsPage() {
                         <p className="text-sm text-foreground">{profile.dislikes}</p>
                       </div>
                     )}
+                    {profile.jobStudyDescription && (
+                      <div className="p-4 rounded-xl bg-background shadow-recessed">
+                        <p className="text-[10px] font-mono font-bold text-muted-fg uppercase tracking-widest mb-2">Job / Study Description</p>
+                        <p className="text-sm text-foreground">{profile.jobStudyDescription}</p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-12">
                     <Activity className="w-12 h-12 text-muted-fg mx-auto mb-4 opacity-30" />
                     <p className="text-muted-fg font-mono uppercase tracking-widest text-sm">No onboarding data found</p>
                     <p className="text-muted-fg text-xs mt-2">Complete onboarding to populate health metrics</p>
+                  </div>
+                )}
+                {profile && (
+                  <div className="pt-4 border-t border-muted-bg shadow-[0_1px_0_#ffffff] flex justify-end">
+                    <Link href="/onboarding">
+                      <PhysicalButton>UPDATE PROFILE</PhysicalButton>
+                    </Link>
                   </div>
                 )}
               </div>
@@ -262,12 +312,27 @@ export default function SettingsPage() {
 function ExtensionPairingSection() {
   const [pairingData, setPairingData] = useState<{code: string, expires: number} | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const generateCode = useMutation(api.users.mutations.generatePairingCode);
+  const { getToken } = useAuth();
 
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
-      const res = await generateCode({ deviceName: "Chrome Extension" });
+      const token = await getToken();
+      const response = await fetch(`${getBackendOrigin()}/extension/pairing-codes`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ deviceName: "Chrome Extension" }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || "Failed to generate pairing code");
+      }
+
+      const res = await response.json();
       setPairingData({ code: res.pairingCode, expires: res.expiresAt });
     } catch (e) {
       console.error(e);

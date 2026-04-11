@@ -1,11 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useConvexAuth } from "convex/react";
+import { useAuth, useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
-import { notifyAuthChanged } from "@/lib/jwt-auth";
 import Link from "next/link";
 
 const navLinks = [
@@ -15,11 +13,11 @@ const navLinks = [
 ];
 
 export function Navigation() {
-  const router = useRouter();
+  const { isLoaded, isSignedIn } = useAuth();
+  const { signOut } = useClerk();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const { isLoading, isAuthenticated } = useConvexAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -32,18 +30,15 @@ export function Navigation() {
   const logout = async () => {
     setIsLoggingOut(true);
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      notifyAuthChanged();
-      router.push("/");
-      router.refresh();
+      await signOut({ redirectUrl: "/" });
     } finally {
       setIsLoggingOut(false);
       setIsMobileMenuOpen(false);
     }
   };
 
-  const showSignedOutCtas = !isLoading && !isAuthenticated;
-  const showSignedInCtas = !isLoading && isAuthenticated;
+  const showSignedOutCtas = isLoaded && !isSignedIn;
+  const showSignedInCtas = isLoaded && isSignedIn;
 
   return (
     <header

@@ -147,11 +147,11 @@ chrome.storage.local.get(
     }
 );
 
-const CONVEX_SITE_URL = "https://diligent-echidna-278.convex.site";
+const API_BASE_URL = "http://localhost:3001";
 
 // ── Check if paired and toggle UI ──
-chrome.storage.local.get(["convex_auth_token"], (data) => {
-    const isPaired = !!data.convex_auth_token;
+chrome.storage.local.get(["mindrift_auth_token"], (data) => {
+    const isPaired = !!data.mindrift_auth_token;
     document.getElementById("pairing-screen").style.display = isPaired ? "none" : "block";
     document.getElementById("main-actions").style.display = isPaired ? "block" : "none";
 });
@@ -170,7 +170,7 @@ document.getElementById("pair-btn").addEventListener("click", async () => {
     status.style.color = "#4ade80";
 
     try {
-        const response = await fetch(`${CONVEX_SITE_URL}/pair`, {
+        const response = await fetch(`${API_BASE_URL}/extension/pair`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ pairingCode: code })
@@ -180,7 +180,7 @@ document.getElementById("pair-btn").addEventListener("click", async () => {
 
         if (response.ok && result.token) {
             chrome.storage.local.set({ 
-                convex_auth_token: result.token,
+                mindrift_auth_token: result.token,
                 device_name: result.deviceName 
             }, () => {
                 status.textContent = "Success! Device paired.";
@@ -199,7 +199,7 @@ document.getElementById("pair-btn").addEventListener("click", async () => {
 // ── Sync button ──
 document.getElementById("sync-btn").addEventListener("click", () => {
     const btn = document.getElementById("sync-btn");
-    btn.textContent = "Syncing to Convex...";
+    btn.textContent = "Syncing to Mindrift...";
     btn.disabled = true;
     chrome.runtime.sendMessage({ action: "flush_now" }, () => {
         btn.textContent = "✓ Synced to Database!";
@@ -218,12 +218,12 @@ document.getElementById("clear-btn").addEventListener("click", () => {
 });
 
 // ── Sync status indicator ──
-chrome.storage.local.get(["convex_auth_token", "pending_events"], (data) => {
+chrome.storage.local.get(["mindrift_auth_token", "pending_events"], (data) => {
     const syncStatus = document.getElementById("sync-btn");
     if (!syncStatus) return;
     const pendingCount = (data.pending_events || []).length;
     
-    if (data.convex_auth_token) {
+    if (data.mindrift_auth_token) {
         syncStatus.textContent = `↑ Sync now (${pendingCount} pending)`;
     } else {
         syncStatus.textContent = "⚠️ Not paired";
