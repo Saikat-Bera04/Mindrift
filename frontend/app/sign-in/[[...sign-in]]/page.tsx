@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { notifyAuthChanged } from "@/lib/jwt-auth";
+import { getGoogleOAuthStartUrl } from "@/lib/backend-url";
 
 function safeRedirect(raw: string | null): string {
   if (!raw) return "/dashboard";
@@ -114,7 +115,7 @@ export default function SignInPage() {
         </div>
 
         <a
-          href="http://localhost:3001/auth/google"
+          href={getGoogleOAuthStartUrl()}
           className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl bg-background h-12 px-4 border border-muted-fg/20 shadow-floating hover:bg-muted/50 transition-colors"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">

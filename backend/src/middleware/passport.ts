@@ -1,13 +1,21 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 
+function resolveGoogleCallbackURL(): string {
+  const explicit = process.env.GOOGLE_CALLBACK_URL?.trim();
+  if (explicit) return explicit;
+  const base = process.env.BACKEND_PUBLIC_URL?.trim().replace(/\/$/, "");
+  if (base) return `${base}/auth/google/callback`;
+  return "/auth/google/callback";
+}
+
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(
     new GoogleStrategy(
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: "/auth/google/callback",
+        callbackURL: resolveGoogleCallbackURL(),
       },
       (accessToken, refreshToken, profile, done) => {
         // Return the profile so our route handler can use it
