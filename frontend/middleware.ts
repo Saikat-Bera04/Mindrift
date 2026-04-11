@@ -6,6 +6,7 @@ const protectedPrefixes = [
   "/dashboard",
   "/insights",
   "/activity",
+  "/health",
   "/reports",
   "/settings",
   "/chat",
