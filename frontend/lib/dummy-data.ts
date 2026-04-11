@@ -1,176 +1,116 @@
-// ─── Wellness Score ──────────────────────────────────────────────
-export const wellnessScore = 74;
+export const wellnessScore = 78;
 
-export const miniCards = [
-  { label: "Stress", value: 38, unit: "%", trend: "down" as const, color: "#ff4757" },
-  { label: "Focus", value: 82, unit: "%", trend: "up" as const, color: "#2ed573" },
-  { label: "Balance", value: 65, unit: "%", trend: "stable" as const, color: "#ffa502" },
+export const quickStats = [
+  { id: 'mood-streak', label: 'Mood Streak', value: '12', unit: 'days', trend: '+3', positive: true },
+  { id: 'sleep-quality', label: 'Sleep Quality', value: '7.2', unit: 'hrs', trend: '+0.5', positive: true },
+  { id: 'stress-level', label: 'Stress Level', value: '34', unit: '%', trend: '-8', positive: true },
+  { id: 'mindfulness', label: 'Mindfulness', value: '45', unit: 'min', trend: '+12', positive: true },
 ];
 
-// ─── Screen Time vs Activity (7 days) ──────────────────────────
-export const dailyChartData = [
-  { day: "Mon", screenTime: 6.2, activity: 1.8 },
-  { day: "Tue", screenTime: 7.1, activity: 1.2 },
-  { day: "Wed", screenTime: 5.5, activity: 2.4 },
-  { day: "Thu", screenTime: 8.0, activity: 0.9 },
-  { day: "Fri", screenTime: 6.8, activity: 1.5 },
-  { day: "Sat", screenTime: 3.2, activity: 3.8 },
-  { day: "Sun", screenTime: 4.1, activity: 3.2 },
+export const weeklyMoodData = [
+  { day: 'Mon', score: 4 },
+  { day: 'Tue', score: 3 },
+  { day: 'Wed', score: 5 },
+  { day: 'Thu', score: 4 },
+  { day: 'Fri', score: 2 },
+  { day: 'Sat', score: 4 },
+  { day: 'Sun', score: 5 },
 ];
 
-// ─── Today's Summary ───────────────────────────────────────────
-export const todaySummary = {
-  screenTime: "5h 42m",
-  movementStatus: "Moderate",
-  stepsToday: 6842,
-  caloriesBurned: 342,
-  activeMinutes: 47,
-  standHours: 8,
-};
-
-// ─── Insights ──────────────────────────────────────────────────
-export const behaviorInsights = [
-  {
-    id: 1,
-    type: "warning" as const,
-    title: "High Screen Time Detected",
-    description: "Your screen time has been above 7 hours for 3 consecutive days. Consider taking more frequent breaks.",
-    timestamp: "2h ago",
-    impact: "high" as const,
-  },
-  {
-    id: 2,
-    type: "info" as const,
-    title: "Focus Peak Identified",
-    description: "Your focus levels are highest between 9 AM and 11 AM. Schedule your most important tasks during this window.",
-    timestamp: "5h ago",
-    impact: "medium" as const,
-  },
-  {
-    id: 3,
-    type: "success" as const,
-    title: "Movement Goal Achieved",
-    description: "You've met your daily movement target for the past 5 days. Great consistency!",
-    timestamp: "1d ago",
-    impact: "low" as const,
-  },
-  {
-    id: 4,
-    type: "warning" as const,
-    title: "Late Night Usage Spike",
-    description: "Screen usage after 10 PM increased by 40% this week. This may affect your sleep quality.",
-    timestamp: "1d ago",
-    impact: "high" as const,
-  },
-  {
-    id: 5,
-    type: "info" as const,
-    title: "Posture Reminder Pattern",
-    description: "You tend to slouch more after 3 PM. Setting a posture reminder for this time could help.",
-    timestamp: "2d ago",
-    impact: "medium" as const,
-  },
+export const recentActivities = [
+  { id: 1, type: 'meditation', title: 'Morning Meditation', duration: '15 min', time: '8:30 AM', icon: '🧘' },
+  { id: 2, type: 'journal', title: 'Gratitude Journal', duration: '10 min', time: '9:00 AM', icon: '📝' },
+  { id: 3, type: 'exercise', title: 'Yoga Session', duration: '30 min', time: '10:15 AM', icon: '🏃' },
+  { id: 4, type: 'breathing', title: 'Deep Breathing', duration: '5 min', time: '2:00 PM', icon: '🌬️' },
+  { id: 5, type: 'sleep', title: 'Sleep Logged', duration: '7.5 hrs', time: '7:00 AM', icon: '😴' },
 ];
 
-export const correlationCards = [
-  {
-    cause: "Low Movement",
-    effect: "Higher Stress (+23%)",
-    description: "Days with less than 30 minutes of activity show elevated stress markers.",
-    strength: 87,
-  },
-  {
-    cause: "High Screen Time",
-    effect: "Reduced Focus (-18%)",
-    description: "Screen sessions longer than 2 hours without breaks correlate with focus decline.",
-    strength: 72,
-  },
-  {
-    cause: "Morning Exercise",
-    effect: "Better Balance (+31%)",
-    description: "Morning physical activity is linked to improved emotional balance throughout the day.",
-    strength: 91,
-  },
-  {
-    cause: "Sleep Consistency",
-    effect: "Lower Stress (-27%)",
-    description: "Stable sleep-wake cycles predict lower baseline stress levels.",
-    strength: 84,
-  },
+export const moodOptions = [
+  { value: 1, label: 'Awful', emoji: '😣', color: '#ef4444' },
+  { value: 2, label: 'Bad', emoji: '😕', color: '#f97316' },
+  { value: 3, label: 'Okay', emoji: '😐', color: '#eab308' },
+  { value: 4, label: 'Good', emoji: '🙂', color: '#22c55e' },
+  { value: 5, label: 'Great', emoji: '😊', color: '#06b6d4' },
 ];
 
-// ─── Activity ──────────────────────────────────────────────────
-export const movementStatus = {
-  current: "Walking" as const,
-  duration: "12 min",
-  pace: "Moderate",
-};
-
-export const activityStats = {
-  estimatedDistance: "4.2 km",
-  activeTime: "1h 23m",
-  calories: 342,
-  steps: 6842,
-  floors: 4,
-  heartRate: 78,
-};
-
-export const activityTimeline = [
-  { time: "06:00", status: "idle" as const, duration: "2h" },
-  { time: "08:00", status: "walking" as const, duration: "45m" },
-  { time: "08:45", status: "idle" as const, duration: "3h 15m" },
-  { time: "12:00", status: "walking" as const, duration: "20m" },
-  { time: "12:20", status: "idle" as const, duration: "2h 40m" },
-  { time: "15:00", status: "running" as const, duration: "30m" },
-  { time: "15:30", status: "walking" as const, duration: "15m" },
-  { time: "15:45", status: "idle" as const, duration: "1h 15m" },
-  { time: "17:00", status: "walking" as const, duration: "25m" },
+export const insights = [
+  { id: 1, title: 'Sleep Pattern Improvement', description: 'Your sleep consistency improved by 23% this week. Maintaining a regular schedule correlates with better mood scores.', category: 'sleep', impact: 'high', trend: 'positive' },
+  { id: 2, title: 'Stress Spike Detected', description: 'Wednesday showed elevated stress. This coincided with reduced meditation time. Consider a brief mindfulness session on busy days.', category: 'stress', impact: 'medium', trend: 'warning' },
+  { id: 3, title: 'Meditation Streak', description: "You've maintained a 12-day meditation streak! Consistent practice for 21+ days significantly reduces anxiety.", category: 'mindfulness', impact: 'high', trend: 'positive' },
+  { id: 4, title: 'Social Connection', description: 'Mood scores are 40% higher on days with social activities. Schedule at least one social interaction daily.', category: 'social', impact: 'medium', trend: 'positive' },
 ];
 
-// ─── Reports ───────────────────────────────────────────────────
-export const weeklyReportData = [
-  { week: "W1", wellness: 68, stress: 42, focus: 75, activity: 1.5 },
-  { week: "W2", wellness: 71, stress: 38, focus: 78, activity: 1.8 },
-  { week: "W3", wellness: 65, stress: 48, focus: 70, activity: 1.2 },
-  { week: "W4", wellness: 74, stress: 35, focus: 82, activity: 2.1 },
+export const trendData = [
+  { week: 'W1', mood: 3.2, sleep: 6.8, stress: 45, mindfulness: 20 },
+  { week: 'W2', mood: 3.5, sleep: 7.0, stress: 42, mindfulness: 25 },
+  { week: 'W3', mood: 3.8, sleep: 7.2, stress: 38, mindfulness: 30 },
+  { week: 'W4', mood: 4.1, sleep: 7.5, stress: 34, mindfulness: 45 },
 ];
 
-export const trendSuggestions = [
-  {
-    title: "Increase Morning Activity",
-    description: "Your data shows a 31% improvement in balance on days with morning exercise. Try adding a 15-minute walk before work.",
-    priority: "high" as const,
-  },
-  {
-    title: "Implement Screen Breaks",
-    description: "Taking a 5-minute break every 50 minutes could reduce your focus decline by 18% based on your patterns.",
-    priority: "medium" as const,
-  },
-  {
-    title: "Consistent Sleep Schedule",
-    description: "Maintaining a regular sleep-wake cycle could help reduce your stress levels by up to 27%.",
-    priority: "high" as const,
-  },
-  {
-    title: "Evening Screen Reduction",
-    description: "Limiting screen time after 9 PM may improve your sleep onset time by approximately 20 minutes.",
-    priority: "low" as const,
-  },
+export const activityLog = [
+  { id: 1, date: '2026-04-11', type: 'meditation', title: 'Morning Meditation', duration: 15, notes: 'Focused on breathing' },
+  { id: 2, date: '2026-04-11', type: 'journal', title: 'Gratitude Journal', duration: 10, notes: '3 things grateful for' },
+  { id: 3, date: '2026-04-10', type: 'exercise', title: 'Evening Walk', duration: 30, notes: 'Park trail' },
+  { id: 4, date: '2026-04-10', type: 'meditation', title: 'Guided Relaxation', duration: 20, notes: 'Body scan' },
+  { id: 5, date: '2026-04-09', type: 'breathing', title: 'Box Breathing', duration: 5, notes: '4-4-4-4 pattern' },
+  { id: 6, date: '2026-04-09', type: 'journal', title: 'Mood Journal', duration: 15, notes: 'Reflected on anxiety triggers' },
+  { id: 7, date: '2026-04-08', type: 'exercise', title: 'Yoga Flow', duration: 45, notes: 'Vinyasa flow' },
+  { id: 8, date: '2026-04-08', type: 'meditation', title: 'Loving-Kindness', duration: 10, notes: 'Metta meditation' },
 ];
 
-// ─── Settings ──────────────────────────────────────────────────
-export const settingsData = {
-  notifications: {
-    dailyReport: true,
-    movementReminders: true,
-    focusAlerts: false,
-    weeklyDigest: true,
-    stressWarnings: true,
-  },
-  privacy: {
-    shareAnonymousData: false,
-    locationTracking: true,
-    healthKitSync: true,
-    dataRetentionDays: 90,
-  },
+export const habits = [
+  { id: 'meditation', name: 'Meditation', target: 15, unit: 'min', streak: 12, completionRate: 85, color: '#f59e0b' },
+  { id: 'journal', name: 'Journaling', target: 1, unit: 'entry', streak: 8, completionRate: 72, color: '#06b6d4' },
+  { id: 'exercise', name: 'Exercise', target: 30, unit: 'min', streak: 5, completionRate: 65, color: '#10b981' },
+  { id: 'sleep', name: 'Sleep 7+ hrs', target: 7, unit: 'hrs', streak: 10, completionRate: 80, color: '#8b5cf6' },
+  { id: 'hydration', name: 'Hydration', target: 8, unit: 'glasses', streak: 3, completionRate: 55, color: '#3b82f6' },
+];
+
+export const habitGridData = [
+  [1,1,0.5,1,0],[1,1,1,1,0.5],[0.5,1,0,1,1],[1,0.5,1,1,0],[1,1,1,0.5,1],
+  [1,0,0.5,1,1],[0.5,1,1,1,0],[1,1,0,0.5,1],[1,1,1,1,1],[0,0.5,1,1,0.5],
+  [1,1,1,0,1],[1,0.5,0.5,1,1],[1,1,1,1,0],[0.5,1,0,1,1],[1,1,1,0.5,1],
+  [1,0,1,1,0.5],[1,1,0.5,1,1],[0,1,1,0.5,0],[1,1,1,1,1],[1,0.5,0,1,1],
+  [0.5,1,1,1,0],[1,1,1,0,1],[1,0,0.5,1,1],[1,1,1,1,0.5],[0,1,1,1,1],
+  [1,1,0,0.5,1],[1,0.5,1,1,1],[0.5,1,1,1,0],[1,1,1,0,1],[1,1,0.5,1,1],
+];
+
+export const monthlyMoodData = [
+  { date: 'Apr 1', score: 3.5 },{ date: 'Apr 2', score: 4.0 },{ date: 'Apr 3', score: 3.8 },
+  { date: 'Apr 4', score: 4.2 },{ date: 'Apr 5', score: 3.0 },{ date: 'Apr 6', score: 4.5 },
+  { date: 'Apr 7', score: 4.8 },{ date: 'Apr 8', score: 4.0 },{ date: 'Apr 9', score: 3.5 },
+  { date: 'Apr 10', score: 4.2 },{ date: 'Apr 11', score: 4.5 },
+];
+
+export const sleepData = [
+  { date: 'Apr 1', hours: 6.5, quality: 65 },{ date: 'Apr 2', hours: 7.0, quality: 72 },
+  { date: 'Apr 3', hours: 7.2, quality: 78 },{ date: 'Apr 4', hours: 6.8, quality: 70 },
+  { date: 'Apr 5', hours: 7.5, quality: 82 },{ date: 'Apr 6', hours: 8.0, quality: 88 },
+  { date: 'Apr 7', hours: 7.3, quality: 75 },{ date: 'Apr 8', hours: 7.0, quality: 72 },
+  { date: 'Apr 9', hours: 7.8, quality: 85 },{ date: 'Apr 10', hours: 7.2, quality: 78 },
+  { date: 'Apr 11', hours: 7.5, quality: 80 },
+];
+
+export const moodDistribution = [
+  { mood: 'Great', count: 8, percentage: 28, color: '#06b6d4' },
+  { mood: 'Good', count: 12, percentage: 40, color: '#22c55e' },
+  { mood: 'Okay', count: 5, percentage: 17, color: '#eab308' },
+  { mood: 'Bad', count: 3, percentage: 10, color: '#f97316' },
+  { mood: 'Awful', count: 2, percentage: 5, color: '#ef4444' },
+];
+
+export const weeklyComparison = [
+  { metric: 'Avg Mood', thisWeek: '4.1', lastWeek: '3.6', change: '+14%', positive: true },
+  { metric: 'Sleep Hours', thisWeek: '7.4', lastWeek: '6.9', change: '+7%', positive: true },
+  { metric: 'Meditation', thisWeek: '45m', lastWeek: '30m', change: '+50%', positive: true },
+  { metric: 'Stress Level', thisWeek: '34%', lastWeek: '42%', change: '-19%', positive: true },
+  { metric: 'Activities', thisWeek: '18', lastWeek: '14', change: '+29%', positive: true },
+];
+
+export const userProfile = {
+  name: 'Alex Rivera',
+  email: 'alex.rivera@example.com',
+  joinedDate: 'March 2026',
+  plan: 'Premium',
+  timezone: 'IST (UTC+5:30)',
 };
