@@ -83,4 +83,23 @@
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  @keyframes health-ping {
+    0% { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+
+  @keyframes health-ping-delay {
+    0% { transform: scale(1); opacity: 0.4; }
+    100% { transform: scale(2); opacity: 0; }
+  }
+
+  .animate-health-ping {
+    animation: health-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  .animate-health-ping-delay {
+    animation: health-ping-delay 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+    animation-delay: 0.5s;
+  }
 }
