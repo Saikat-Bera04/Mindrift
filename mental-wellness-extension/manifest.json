@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Mental Wellness Tracker",
     "version": "1.1.0",
-    "description": "Tracks digital behavior for mental wellness insights — syncs to Santulan via Convex",
+    "description": "Tracks digital behavior for mental wellness insights and syncs to Santulan.",
     "permissions": [
         "tabs",
         "idle",
@@ -13,8 +13,8 @@
         "windows"
     ],
     "host_permissions": [
-        "https://diligent-echidna-278.convex.site/*",
-        "http://localhost:3000/*"
+        "http://localhost:3000/*",
+        "http://localhost:3001/*"
     ],
     "background": {
         "service_worker": "background.js"

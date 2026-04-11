@@ -2,9 +2,8 @@ import React from "react"
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
-
-import { ConvexClientProvider } from "@/components/providers/convex-provider"
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -17,8 +16,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Santulan - Mental Wellness Dashboard',
-  description: 'Physical tracking for your mental health and emotional balance.',
+  title: 'Mindrift - Mental Wellness Dashboard',
+  description: 'Track your mood, health metrics, and mental wellness journey.',
   manifest: '/manifest.json',
 }
 
@@ -28,13 +27,13 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased text-foreground bg-background`} suppressHydrationWarning>
-        <ConvexClientProvider>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased text-foreground bg-background`} suppressHydrationWarning>
           {children}
           <Analytics />
-        </ConvexClientProvider>
-      </body>
-    </html>
+        </body>
+      </html>
+    </ClerkProvider>
   )
 }

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { useAuth, useClerk } from "@clerk/nextjs";
 import Link from "next/link";
-import { useQuery } from "convex/react";
 import {
   LayoutDashboard,
   Lightbulb,
@@ -19,8 +19,6 @@ import {
   MessageCircle,
   HeartPulse,
 } from "lucide-react";
-import { api } from "@/convex/_generated/api";
-import { notifyAuthChanged } from "@/lib/jwt-auth";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -34,11 +32,29 @@ const navItems = [
 
 export function DashboardSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const dbUser = useQuery(api.users.queries.getMe);
+  const { getToken } = useAuth();
+  const { signOut } = useClerk();
+  const [dbUser, setDbUser] = useState<any>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const token = await getToken();
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+        const res = await fetch(`${backendUrl}/api/users/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) setDbUser(await res.json());
+      } catch (error) {
+        console.error('Failed to fetch user:', error);
+      }
+    };
+
+    fetchUser();
+  }, [getToken]);
 
   const userName = dbUser?.displayName || dbUser?.email || "User";
   const initials = userName
@@ -51,10 +67,7 @@ export function DashboardSidebar() {
   const logout = async () => {
     setIsLoggingOut(true);
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      notifyAuthChanged();
-      router.push("/");
-      router.refresh();
+      await signOut({ redirectUrl: "/" });
     } finally {
       setIsLoggingOut(false);
     }
@@ -134,8 +147,10 @@ export function DashboardSidebar() {
         </nav>
 
         <div className="relative p-6 pt-0 flex flex-col gap-4">
-          <div
-            className={`p-4 rounded-xl bg-background shadow-recessed flex items-center gap-3 ${
+          <Link
+            href="/settings"
+            onClick={() => setMobileOpen(false)}
+            className={`p-4 rounded-xl bg-background shadow-recessed flex items-center gap-3 transition hover:shadow-card ${
               collapsed ? "justify-center" : ""
             }`}
           >
@@ -148,7 +163,7 @@ export function DashboardSidebar() {
                 <p className="text-xs font-mono text-accent uppercase font-bold mt-1">Premium</p>
               </div>
             )}
-          </div>
+          </Link>
 
           <button
             onClick={logout}

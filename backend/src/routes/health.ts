@@ -1,7 +1,10 @@
 import { Router, Request, Response } from "express";
+import { prisma } from "../lib/prisma.js";
+import { requireAuth } from "../middleware/clerk.js";
 
 const router = Router();
 
+// Basic health check
 router.get("/", (_req: Request, res: Response) => {
   res.json({
     status: "healthy",
@@ -12,50 +15,90 @@ router.get("/", (_req: Request, res: Response) => {
   });
 });
 
-router.get("/convex", async (_req: Request, res: Response) => {
-  const convexUrl = process.env.CONVEX_URL;
-  if (!convexUrl) {
-    res.status(503).json({
-      status: "unhealthy",
-      error: "CONVEX_URL not configured",
-    });
-    return;
-  }
-
+// POST /health/metric - Log a health metric
+router.post("/metric", requireAuth, async (req: Request, res: Response) => {
   try {
-    const response = await fetch(convexUrl, {
-      method: "OPTIONS",
-      signal: AbortSignal.timeout(5000),
+    const { metricType, value, unit, notes } = req.body;
+    const clerkUserId = req.clerkUserId!;
+
+    if (!metricType || !value) {
+      return res.status(400).json({ error: "metricType and value are required" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { clerkId: clerkUserId },
     });
 
-    res.json({
-      status: "healthy",
-      convexUrl: convexUrl.replace(
-        /https:\/\/(.{8}).*?(\.convex\.cloud)/,
-        "https://$1****$2",
-      ),
-      responseStatus: response.status,
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const now = Date.now();
+    const today = new Date(now).toISOString().split("T")[0];
+
+    const metric = await prisma.healthMetric.create({
+      data: {
+        userId: user.id,
+        metricType,
+        value,
+        unit: unit || undefined,
+        notes: notes || undefined,
+        timestamp: new Date(now),
+        date: today,
+      },
     });
-  } catch {
-    res.status(503).json({
-      status: "unhealthy",
-      error: "Cannot reach Convex",
+
+    // Update gamification XP
+    await prisma.gamification.upsert({
+      where: { userId: user.id },
+      create: {
+        userId: user.id,
+        xp: 5,
+        lastActivityDate: today,
+      },
+      update: {
+        xp: { increment: 5 },
+        lastActivityDate: today,
+      },
     });
+
+    res.json({ success: true, metric });
+  } catch (error) {
+    console.error("Error logging health metric:", error);
+    res.status(500).json({ error: "Failed to log health metric" });
   }
 });
 
-router.get("/ready", (_req: Request, res: Response) => {
-  const checks = {
-    convexUrl: !!process.env.CONVEX_URL,
-    jwtPrivateKey: !!process.env.JWT_PRIVATE_KEY_PEM,
-    jwtPublicJwk: !!process.env.JWT_PUBLIC_KEY_JWK,
-  };
+// GET /health/metrics - Get user's health metrics
+router.get("/metrics", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const clerkUserId = req.clerkUserId!;
+    const { days = 30, metricType } = req.query;
 
-  const allReady = Object.values(checks).every(Boolean);
-  res.status(allReady ? 200 : 503).json({
-    ready: allReady,
-    checks,
-  });
+    const user = await prisma.user.findUnique({
+      where: { clerkId: clerkUserId },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const since = new Date(Date.now() - parseInt(days as string) * 24 * 60 * 60 * 1000);
+
+    const metrics = await prisma.healthMetric.findMany({
+      where: {
+        userId: user.id,
+        timestamp: { gte: since },
+        ...(metricType && { metricType: metricType as string }),
+      },
+      orderBy: { timestamp: "desc" },
+    });
+
+    res.json({ metrics });
+  } catch (error) {
+    console.error("Error fetching health metrics:", error);
+    res.status(500).json({ error: "Failed to fetch health metrics" });
+  }
 });
 
 export { router as healthRouter };

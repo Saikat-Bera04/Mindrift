@@ -1,11 +1,11 @@
 "use client";
 
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { AICompanion } from "@/components/dashboard/ai-companion";
+import { getBackendOrigin } from "@/lib/backend-url";
 
 export default function DashboardLayout({
   children,
@@ -13,17 +13,39 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const onboarding = useQuery(api.users.queries.getOnboardingProfile);
+  const { getToken, isLoaded } = useAuth();
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // Check onboarding status
-    if (onboarding === null) {
-      router.push("/onboarding");
-    } else if (onboarding !== undefined) {
-      setIsChecking(false);
-    }
-  }, [onboarding, router]);
+    if (!isLoaded) return;
+    
+    const checkOnboarding = async () => {
+      try {
+        const token = await getToken();
+        const res = await fetch(`${getBackendOrigin()}/api/users/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!res.ok) {
+          router.push("/onboarding");
+          return;
+        }
+
+        const user = await res.json();
+        if (!user.height || !user.weight || !user.age || !user.currentStatus || !user.relationshipStatus) {
+          router.push("/onboarding");
+          return;
+        }
+        
+        setIsChecking(false);
+      } catch (error) {
+        console.error('Onboarding check failed:', error);
+        setIsChecking(false);
+      }
+    };
+
+    checkOnboarding();
+  }, [isLoaded, getToken, router]);
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {

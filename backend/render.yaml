@@ -10,19 +10,15 @@ services:
         value: production
       - key: PORT
         value: "3001"
-      - key: CONVEX_URL
+      - key: DATABASE_URL
         sync: false
-      - key: CONVEX_SITE_URL
+      - key: CLERK_SECRET_KEY
         sync: false
-      - key: JWT_ISSUER
+      - key: PINECONE_API_KEY
         sync: false
-      - key: JWT_AUDIENCE
-        sync: false
-      - key: JWT_KEY_ID
-        sync: false
-      - key: JWT_PUBLIC_KEY_JWK
-        sync: false
-      - key: JWT_PRIVATE_KEY_PEM
+      - key: PINECONE_INDEX
+        value: mindrift
+      - key: PINECONE_DIMENSION
         sync: false
       - key: FRONTEND_URL
         sync: false
