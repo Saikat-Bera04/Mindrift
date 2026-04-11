@@ -214,7 +214,7 @@ export function FeaturesSection() {
                 src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Upscaled%20Image%20%2812%29-ng3RrNnsPMJ5CrtOjcPTmhHg01W11q.png"
                 alt=""
                 aria-hidden="true"
-                className="absolute inset-0 w-full h-full object-cover object-center grayscale"
+                className="absolute inset-0 w-full h-full object-cover object-center "
                 style={{ transform: "scaleX(-1)" }}
               />
               {/* Fade left edge into black */}
