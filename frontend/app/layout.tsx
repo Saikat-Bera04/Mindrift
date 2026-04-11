@@ -19,6 +19,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Santulan - Mental Wellness Dashboard',
   description: 'Physical tracking for your mental health and emotional balance.',
+  manifest: '/manifest.json',
 }
 
 export default function RootLayout({
