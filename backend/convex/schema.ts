@@ -33,6 +33,19 @@ export default defineSchema({
     .index("by_tokenIdentifier", ["tokenIdentifier"])
     .index("by_email", ["email"]),
 
+  authAccounts: defineTable({
+    userId: v.id("users"),
+    subject: v.string(),
+    email: v.string(),
+    passwordHash: v.string(),
+    passwordSalt: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_email", ["email"])
+    .index("by_subject", ["subject"])
+    .index("by_userId", ["userId"]),
+
   // ─── Behavioral Events ─────────────────────────────────────────
   // Raw events ingested from Chrome ext, VS Code ext, PWA, geolocation
   events: defineTable({

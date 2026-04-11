@@ -12,11 +12,17 @@ services:
         value: "3001"
       - key: CONVEX_URL
         sync: false
-      - key: CLERK_WEBHOOK_SECRET
+      - key: CONVEX_SITE_URL
         sync: false
-      - key: CLERK_SECRET_KEY
+      - key: JWT_ISSUER
         sync: false
-      - key: CLERK_JWT_ISSUER_DOMAIN
+      - key: JWT_AUDIENCE
+        sync: false
+      - key: JWT_KEY_ID
+        sync: false
+      - key: JWT_PUBLIC_KEY_JWK
+        sync: false
+      - key: JWT_PRIVATE_KEY_PEM
         sync: false
       - key: FRONTEND_URL
         sync: false

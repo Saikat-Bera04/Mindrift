@@ -12,7 +12,7 @@ import { MAX_EVENTS_PER_BATCH } from "../lib/constants";
 // ─── HTTP Action: Batch Event Ingestion ─────────────────────────
 // Extensions POST events here: {CONVEX_SITE_URL}/events/batch
 export const batchIngest = httpAction(async (ctx, req) => {
-  // Verify auth (Clerk JWT or Pairing Token)
+  // Verify auth (Convex JWT or extension pairing token)
   let tokenIdentifier: string | null = null;
   const identity = await ctx.auth.getUserIdentity();
   
@@ -23,7 +23,7 @@ export const batchIngest = httpAction(async (ctx, req) => {
     const authHeader = req.headers.get("Authorization");
     if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.split(" ")[1];
-      // In this prototype, the 'token' is the clerkUserId.
+      // In this prototype, the pairing token is the auth subject.
       // We check if this user has any 'paired' devices.
       const pairing = await ctx.runQuery(internal.events.ingest.checkPairing, { token });
       if (pairing) {
@@ -183,6 +183,7 @@ export const insertBatch = internalMutation({
 export const checkPairing = internalQuery({
   args: { token: v.string() },
   handler: async (ctx, args) => {
+    // `users.clerkId` is now used as the local auth subject identifier.
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", args.token))
