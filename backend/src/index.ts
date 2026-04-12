@@ -11,6 +11,7 @@ import { extensionRouter } from "./routes/extension.js";
 import { activityRouter } from "./routes/activity.js";
 import { voiceRouter } from "./routes/voice.js";
 import { stressRouter } from "./routes/stress.js";
+import { stressManagementRouter } from "./routes/stress-management.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { clerkMiddleware } from "./middleware/clerk.js";
 import { createGeneralLimiter } from "./middleware/rateLimiter.js";
@@ -92,6 +93,7 @@ app.use("/extension", extensionRouter);
 app.use("/activity", activityRouter);
 app.use("/voice", voiceRouter);
 app.use("/stress", stressRouter);
+app.use("/stress-management", stressManagementRouter);
 
 app.use(errorHandler);
 

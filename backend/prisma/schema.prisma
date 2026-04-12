@@ -37,9 +37,22 @@ model User {
   insights      Insight[]
   extensionTokens ExtensionToken[]
   browserEvents BrowserEvent[]
+  pairingCodes  PairingCode[]
 
   @@index([clerkId])
   @@index([email])
+}
+
+model PairingCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceName  String?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([code])
 }
 
 model ActivityEntry {

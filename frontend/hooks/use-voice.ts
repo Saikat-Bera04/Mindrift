@@ -87,7 +87,16 @@ export function useVoice(options: UseVoiceOptions = {}) {
           const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
           const audioBase64 = await audioBlobToBase64(audioBlob);
 
-          const token = await getToken();
+          let token: string | null = null;
+          try {
+            token = await getToken();
+            if (!token) {
+              console.warn("⚠️ No Clerk token available - user may not be authenticated");
+            }
+          } catch (tokenError) {
+            console.error("Failed to get Clerk token:", tokenError);
+          }
+          
           // Call voice chat API (STT -> AI -> TTS)
           const result: VoiceChatResponse = await voiceChat(
             audioBase64,

@@ -17,7 +17,8 @@ function escHtml(str) {
 }
 
 // ── Configuration ──
-const API_BASE_URL = "https://mindrift.onrender.com";
+// Use local backend for development if needed, but keeping production URL as default or fallback
+const API_BASE_URL = "http://localhost:3001"; // Switching to local for better dev experience, or use prod if available
 
 // ── Date header ──
 document.getElementById("header-date").textContent =
@@ -32,6 +33,37 @@ chrome.runtime.sendMessage({ action: "get_current_tab" }, (resp) => {
         document.getElementById("now-title").textContent = "No active tab";
     }
 });
+
+async function fetchStats() {
+    chrome.storage.local.get(["mindrift_auth_token"], async (data) => {
+        if (!data.mindrift_auth_token) return;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/extension/stats`, {
+                headers: { 
+                    "Authorization": `Bearer ${data.mindrift_auth_token}` 
+                }
+            });
+            const result = await response.json();
+
+            if (response.ok) {
+                // Update Wellness Score
+                const ring = document.getElementById("score-ring");
+                const desc = document.getElementById("score-desc");
+                ring.textContent = result.wellnessScore;
+                ring.style.borderColor = result.wellnessScore > 70 ? "#4ade80" : result.wellnessScore > 40 ? "#facc15" : "#f87171";
+                desc.textContent = `Sync: ${result.userName}'s score is ${result.wellnessScore}%.`;
+                
+                // If we have insights, maybe show them?
+                if (result.insights && result.insights.length > 0) {
+                   desc.textContent = result.insights[0].title + " - " + result.insights[0].content;
+                }
+            }
+        } catch (err) {
+            console.error("Failed to fetch cloud stats:", err);
+        }
+    });
+}
 
 // ── Load all stored data ──
 chrome.storage.local.get(
@@ -55,7 +87,7 @@ chrome.storage.local.get(
         const breaks = idleLog.filter(e => e.state === "idle").length;
         document.getElementById("idle-breaks").textContent = breaks;
 
-        // ── Wellness score ──
+        // ── Wellness score (Local calculation as fallback) ──
         let score = 100;
         const hours = totalMs / 3600000;
         if (hours > 6) score -= 40;
@@ -147,6 +179,9 @@ chrome.storage.local.get(
                     </div>
                 </div>`).join("");
         }
+
+        // After local load, fetch from cloud if possible
+        fetchStats();
     }
 );
 
