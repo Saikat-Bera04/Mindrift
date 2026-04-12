@@ -6,13 +6,15 @@ import { DashboardHeader } from "@/components/dashboard/header";
 import { WellnessGauge } from "@/components/dashboard/wellness-gauge";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { MoodTracker } from "@/components/dashboard/mood-tracker";
+import { SleepTracker } from "@/components/dashboard/sleep-tracker";
 import { StressWidget } from "@/components/dashboard/stress-widget";
 import { MechanicalCard } from "@/components/ui/mechanics";
 import { wellnessScore, quickStats, weeklyMoodData, recentActivities } from "@/lib/dummy-data";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, CartesianGrid } from "recharts";
-import { Clock, Activity, Heart, Briefcase, Moon, AlertTriangle, Phone, MessageCircle, X } from "lucide-react";
+import { Clock, Activity, Heart, Briefcase, Moon, AlertTriangle, Phone, MessageCircle, X, Smartphone } from "lucide-react";
 import Link from "next/link";
 import { useStress } from "@/hooks/use-stress";
+import { SupportResources } from "@/components/dashboard/support-resources";
 import { motion, AnimatePresence } from "framer-motion";
 
 const moodColors = ['#ff4757', '#f97316', '#f59e0b', '#10b981', '#06b6d4'];
@@ -46,11 +48,24 @@ export default function DashboardPage() {
         if (meRes.ok) {
           const me = await meRes.json();
           setUser(me);
+          
+          // Fetch latest sleep metric
+          const healthRes = await fetch(`${backendUrl}/health/metrics?metricType=sleep&days=1`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          let latestSleep = me.sleepHours;
+          if (healthRes.ok) {
+            const { metrics } = await healthRes.json();
+            if (metrics && metrics.length > 0) {
+              latestSleep = metrics[0].value;
+            }
+          }
+
           setProfile({
             age: me.age,
             bmi: me.bmi ?? (me.height && me.weight ? Number((me.weight / ((me.height / 100) ** 2)).toFixed(1)) : null),
             status: me.currentStatus,
-            sleepHours: me.sleepHours,
+            sleepHours: latestSleep,
           });
         }
 
@@ -119,40 +134,62 @@ export default function DashboardPage() {
       {/* Critical Stress Alert Banner */}
       <CriticalStressAlert level={stressAnalysis?.stressLevel} />
 
-      {/* Profile Summary Banner */}
-      {profile && (
-        <MechanicalCard className="p-6 mb-0" withScrews={false}>
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-widest text-muted-fg">
-              <Heart className="w-4 h-4 text-accent" /> Age: <span className="text-foreground">{profile.age}</span>
+      {/* ─── SYSTEM STATUS PANEL ─── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <MechanicalCard className="p-4" withScrews={false}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-recessed ${stressAnalysis?.factors?.digital?.score && stressAnalysis.factors.digital.score > 5 ? 'text-orange-500' : 'text-emerald-500'}`}>
+              <Smartphone className="w-5 h-5" />
             </div>
-            <div className="w-px h-6 bg-muted-bg"></div>
-            <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-widest text-muted-fg">
-              <Activity className="w-4 h-4 text-accent" /> BMI: <span className="text-foreground">{profile.bmi}</span>
-            </div>
-            {profile.status && (
-              <>
-                <div className="w-px h-6 bg-muted-bg"></div>
-                <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-widest text-muted-fg">
-                  <Briefcase className="w-4 h-4 text-accent" /> <span className="text-foreground">{profile.status}</span>
-                </div>
-              </>
-            )}
-            {profile.sleepHours && (
-              <>
-                <div className="w-px h-6 bg-muted-bg"></div>
-                <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-widest text-muted-fg">
-                  <Moon className="w-4 h-4 text-accent" /> Sleep: <span className="text-foreground">{profile.sleepHours}h</span>
-                </div>
-              </>
-            )}
-            <div className="ml-auto">
-              <span className="px-3 py-1 rounded-full shadow-recessed bg-emerald-500/10 text-emerald-600 text-[10px] font-mono font-bold tracking-widest uppercase">
-                Profile Synced
-              </span>
+            <div>
+              <p className="text-[10px] font-mono font-bold text-muted-fg uppercase tracking-widest">Digital Habits</p>
+              <p className="text-sm font-bold text-foreground">{stressAnalysis?.factors?.digital?.impact ?? 'Syncing'}... Signal</p>
             </div>
           </div>
         </MechanicalCard>
+        
+        <MechanicalCard className="p-4" withScrews={false}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-recessed ${stressAnalysis?.factors?.physical?.score && stressAnalysis.factors.physical.score > 5 ? 'text-orange-500' : 'text-emerald-500'}`}>
+              <Activity className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-mono font-bold text-muted-fg uppercase tracking-widest">Physical Body</p>
+              <p className="text-sm font-bold text-foreground">{stressAnalysis?.factors?.physical?.impact ?? 'Analyzing'}... Bio</p>
+            </div>
+          </div>
+        </MechanicalCard>
+
+        <MechanicalCard className="p-4" withScrews={false}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-recessed ${stressAnalysis?.factors?.sleep?.score && stressAnalysis.factors.sleep.score > 5 ? 'text-orange-500' : 'text-emerald-500'}`}>
+              <Moon className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-mono font-bold text-muted-fg uppercase tracking-widest">Sleep Cycle</p>
+              <p className="text-sm font-bold text-foreground">{stressAnalysis?.factors?.sleep?.impact ?? 'Monitoring'}... Phase</p>
+            </div>
+          </div>
+        </MechanicalCard>
+      </div>
+
+      {/* Profile Summary Banner (Optional/Minimized) */}
+      {profile && (
+        <div className="hidden lg:block mb-8">
+           <MechanicalCard className="px-6 py-3" withScrews={false}>
+             <div className="flex items-center gap-4 text-[10px] font-mono font-bold uppercase tracking-widest text-muted-fg">
+                <span className="flex items-center gap-1"><Heart className="w-3 h-3 text-accent" /> Age: {profile.age}</span>
+                <span className="w-px h-3 bg-muted-bg"></span>
+                <span className="flex items-center gap-1"><Activity className="w-3 h-3 text-accent" /> BMI: {profile.bmi}</span>
+                <span className="w-px h-3 bg-muted-bg"></span>
+                <span className="text-foreground">{profile.status}</span>
+                <div className="ml-auto flex items-center gap-2">
+                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                   SYSTEM_REALTIME_STREAMS = ON
+                </div>
+             </div>
+           </MechanicalCard>
+        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -166,6 +203,7 @@ export default function DashboardPage() {
             <WellnessGauge score={overallScore} />
           </MechanicalCard>
           <MoodTracker />
+          <SleepTracker />
           <StressWidget />
         </div>
 
@@ -177,7 +215,7 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             <MechanicalCard className="p-6" withScrews>
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-muted-bg shadow-[0_1px_0_#ffffff]">
                 <h3 className="text-xs font-bold text-foreground font-mono uppercase tracking-widest">Stress Trajectory</h3>
@@ -217,7 +255,7 @@ export default function DashboardPage() {
 
             <MechanicalCard className="p-6">
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-muted-bg shadow-[0_1px_0_#ffffff]">
-                <h3 className="text-xs font-bold text-foreground font-mono uppercase tracking-widest">Event Log</h3>
+                <h3 className="text-xs font-bold text-foreground font-mono uppercase tracking-widest">Diagnostic Events</h3>
                 <span className="text-[10px] text-muted-fg font-mono font-bold px-2 py-0.5 rounded shadow-recessed">{recentActivities.length} ENTRIES</span>
               </div>
               <div className="space-y-3 h-[220px] overflow-y-auto pr-2 custom-scrollbar">
@@ -239,6 +277,11 @@ export default function DashboardPage() {
                 ))}
               </div>
             </MechanicalCard>
+          </div>
+
+          {/* Support Resources Section */}
+          <div className="grid grid-cols-1 gap-8">
+            <SupportResources />
           </div>
         </div>
       </div>
