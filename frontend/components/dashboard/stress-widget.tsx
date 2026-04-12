@@ -214,7 +214,7 @@ function StressInterventionAlert({ level }: { level: number }) {
                 className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-accent text-white rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-accent/90 transition-colors"
               >
                 <MessageCircle className="w-3 h-3" />
-                Talk to Aura
+                Talk to Diva
               </Link>
               <button 
                 onClick={() => alert("Consider calling a trusted friend or family member!")}

@@ -293,7 +293,7 @@ function CriticalStressAlert({ level }: { level?: number }) {
                   className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/50 text-white border border-white/30 rounded-lg font-bold text-sm uppercase tracking-wider hover:bg-red-500/70 transition-colors"
                 >
                   <MessageCircle className="w-4 h-4" />
-                  Talk to Aura AI
+                  Talk to Diva AI
                 </Link>
               </div>
               <p className="text-red-200 text-xs mt-3">

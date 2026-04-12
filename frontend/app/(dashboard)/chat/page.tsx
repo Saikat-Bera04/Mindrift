@@ -19,7 +19,7 @@ export default function VoiceCompanionPage() {
     cancelSpeaking 
   } = useVoice({
     languageCode: "en-IN",
-    voice: "meera",
+    voice: "EXAVITQu4vr4xnSDxMaL",
     onError: (err) => console.error("Voice error:", err),
   });
   
@@ -92,7 +92,7 @@ export default function VoiceCompanionPage() {
           `}>
              <Image 
                 src="/ai_voice_avatar.png" 
-                alt="Aura - Voice AI Companion" 
+                alt="Diva - Voice AI Companion" 
                 fill
                 style={{ objectFit: 'cover' }}
                 className={`scale-110 object-top transition-transform duration-[2s] pointer-events-none ${isAiSpeaking || isProcessing ? 'scale-125' : ''}`}
@@ -111,7 +111,7 @@ export default function VoiceCompanionPage() {
             'bg-muted-fg'
           }`} />
           <span className="font-mono font-bold uppercase text-sm tracking-widest">
-            {isAiSpeaking ? 'Aura is Speaking...' : isProcessing ? 'Processing...' : isRecording ? 'Listening...' : error ? 'Error' : 'Standing By'}
+            {isAiSpeaking ? 'Diva is Speaking...' : isProcessing ? 'Processing...' : isRecording ? 'Listening...' : error ? 'Error' : 'Standing By'}
           </span>
         </div>
 
@@ -191,7 +191,7 @@ export default function VoiceCompanionPage() {
             {isRecording ? "Tap to Stop" : isProcessing ? "Processing..." : "Tap to Speak"}
           </p>
           <p className="text-sm font-mono text-muted-fg uppercase tracking-wide">
-             {isAiSpeaking ? "Aura is responding..." : isProcessing ? "Sarvam AI processing..." : "End-to-End Encrypted Voice"}
+             {isAiSpeaking ? "Diva is responding..." : isProcessing ? "Sarvam AI processing..." : "End-to-End Encrypted Voice"}
           </p>
         </div>
 

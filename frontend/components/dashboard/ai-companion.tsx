@@ -96,7 +96,7 @@ export function AICompanion() {
             >
               <Image 
                 src="/ai_voice_avatar.png" 
-                alt="Aura" 
+                alt="Diva" 
                 fill
                 style={{ objectFit: 'cover' }}
                 draggable="false"
@@ -170,7 +170,7 @@ export function AICompanion() {
               )}
             </button>
             <p className="text-xs font-bold font-mono uppercase tracking-widest text-[#2d3436]">
-               {isAiSpeaking ? 'Aura responding' : isProcessing ? 'Processing...' : isRecording ? 'Listening...' : 'Voice mode'}
+               {isAiSpeaking ? 'Diva responding' : isProcessing ? 'Processing...' : isRecording ? 'Listening...' : 'Voice mode'}
             </p>
           </div>
         </motion.div>

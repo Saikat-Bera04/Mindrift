@@ -62,24 +62,18 @@ export async function speechToText(
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  try {
-    const response = await fetch(`${API_BASE}/stt`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ audioBase64, languageCode }),
-    });
+  const response = await fetch(`${API_BASE}/stt`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ audioBase64, languageCode }),
+  });
 
-    if (!response.ok) {
-      const error = await response.json().catch(async () => ({ error: await response.text() }));
-      console.error("STT API Response Error:", { status: response.status, error });
-      throw new Error(`STT failed (${response.status}): ${JSON.stringify(error)}`);
-    }
-
-    return response.json();
-  } catch (error) {
-    console.error("STT Error:", error);
-    throw error;
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`STT failed: ${error}`);
   }
+
+  return response.json();
 }
 
 /**
@@ -88,30 +82,24 @@ export async function speechToText(
 export async function textToSpeech(
   text: string,
   languageCode = "en-IN",
-  voice = "meera",
+  voice = "EXAVITQu4vr4xnSDxMaL",
   token?: string | null
 ): Promise<TTSResponse> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  try {
-    const response = await fetch(`${API_BASE}/tts`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ text, languageCode, voice }),
-    });
+  const response = await fetch(`${API_BASE}/tts`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ text, languageCode, voice }),
+  });
 
-    if (!response.ok) {
-      const error = await response.json().catch(async () => ({ error: await response.text() }));
-      console.error("TTS API Response Error:", { status: response.status, error });
-      throw new Error(`TTS failed (${response.status}): ${JSON.stringify(error)}`);
-    }
-
-    return response.json();
-  } catch (error) {
-    console.error("TTS Error:", error);
-    throw error;
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`TTS failed: ${error}`);
   }
+
+  return response.json();
 }
 
 /**
@@ -120,36 +108,30 @@ export async function textToSpeech(
 export async function voiceChat(
   audioBase64: string,
   languageCode = "en-IN",
-  voice = "meera",
+  voice = "EXAVITQu4vr4xnSDxMaL",
   conversationHistory: Array<{ role: string; content: string }> = [],
   token?: string | null
 ): Promise<VoiceChatResponse> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  try {
-    const response = await fetch(`${API_BASE}/chat`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        audioBase64,
-        languageCode,
-        voice,
-        conversationHistory,
-      }),
-    });
+  const response = await fetch(`${API_BASE}/chat`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      audioBase64,
+      languageCode,
+      voice,
+      conversationHistory,
+    }),
+  });
 
-    if (!response.ok) {
-      const error = await response.json().catch(async () => ({ error: await response.text() }));
-      console.error("Voice Chat API Response Error:", { status: response.status, error });
-      throw new Error(`Voice chat failed (${response.status}): ${JSON.stringify(error)}`);
-    }
-
-    return response.json();
-  } catch (error) {
-    console.error("Voice Chat Error:", error);
-    throw error;
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Voice chat failed: ${error}`);
   }
+
+  return response.json();
 }
 
 /**

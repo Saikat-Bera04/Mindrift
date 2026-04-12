@@ -4,14 +4,6 @@ import { prisma } from "../lib/prisma.js";
 import { requireAuth } from "../middleware/clerk.js";
 import { processExtensionData } from "../cron.js";
 
-type PairingRecord = {
-  code: string;
-  clerkUserId: string;
-  deviceName?: string;
-  expiresAt: number;
-};
-
-const pairingCodes = new Map<string, PairingRecord>();
 const TOKEN_BYTES = 32;
 
 export const extensionRouter = Router();
@@ -30,37 +22,44 @@ function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-function pruneExpiredPairingCodes() {
-  const now = Date.now();
-  for (const [code, pairing] of pairingCodes) {
-    if (pairing.expiresAt <= now) {
-      pairingCodes.delete(code);
-    }
-  }
-}
-
-setInterval(pruneExpiredPairingCodes, 60 * 1000).unref();
-
 extensionRouter.post("/pairing-codes", requireAuth, async (req: Request, res: Response) => {
   try {
-    pruneExpiredPairingCodes();
+    const user = await prisma.user.findFirst({
+      where: { clerkId: req.clerkUserId! },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "Finish onboarding before pairing the extension" });
+    }
+
+    // Prune expired codes for this user
+    await prisma.pairingCode.deleteMany({
+      where: { 
+        OR: [
+          { expiresAt: { lte: new Date() } },
+          { userId: user.id } // Clear existing codes to avoid confusion
+        ]
+      }
+    });
 
     const code = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = Date.now() + 10 * 60 * 1000;
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     const deviceName =
       typeof req.body?.deviceName === "string" ? req.body.deviceName.slice(0, 80) : undefined;
 
-    pairingCodes.set(code, {
-      code,
-      clerkUserId: req.clerkUserId!,
-      deviceName,
-      expiresAt,
+    await prisma.pairingCode.create({
+      data: {
+        code,
+        userId: user.id,
+        deviceName,
+        expiresAt,
+      },
     });
 
     res.json({
       pairingCode: code,
-      expiresAt,
-      expiresAtIso: new Date(expiresAt).toISOString(),
+      expiresAt: expiresAt.getTime(),
+      expiresAtIso: expiresAt.toISOString(),
       ttlSeconds: 600,
     });
   } catch (error) {
@@ -71,34 +70,32 @@ extensionRouter.post("/pairing-codes", requireAuth, async (req: Request, res: Re
 
 extensionRouter.post("/pair", async (req: Request, res: Response) => {
   try {
-    pruneExpiredPairingCodes();
-
     const pairingCode = String(req.body?.pairingCode ?? "").trim();
-    const pairing = pairingCodes.get(pairingCode);
-
-    if (!pairing) {
-      return res.status(404).json({ error: "Invalid or expired pairing code" });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { clerkId: pairing.clerkUserId },
+    
+    const pairing = await prisma.pairingCode.findUnique({
+      where: { code: pairingCode },
+      include: { user: true }
     });
 
-    if (!user) {
-      return res.status(404).json({ error: "Finish onboarding before pairing the extension" });
+    if (!pairing || pairing.expiresAt < new Date()) {
+      if (pairing) {
+        await prisma.pairingCode.delete({ where: { id: pairing.id } });
+      }
+      return res.status(404).json({ error: "Invalid or expired pairing code" });
     }
 
     const token = crypto.randomBytes(TOKEN_BYTES).toString("base64url");
 
     await prisma.extensionToken.create({
       data: {
-        userId: user.id,
+        userId: pairing.userId,
         tokenHash: hashToken(token),
         deviceName: pairing.deviceName ?? "Chrome Extension",
       },
     });
 
-    pairingCodes.delete(pairingCode);
+    // Delete the used pairing code
+    await prisma.pairingCode.delete({ where: { id: pairing.id } });
 
     res.json({
       token,
@@ -107,6 +104,73 @@ extensionRouter.post("/pair", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error pairing extension:", error);
     res.status(500).json({ error: "Failed to pair extension" });
+  }
+});
+
+// GET /extension/stats - Fetch analyzed data for the extension popup
+extensionRouter.get("/stats", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Missing extension token" });
+    }
+
+    const tokenHash = hashToken(authHeader.slice(7));
+    const extensionToken = await prisma.extensionToken.findFirst({
+      where: {
+        tokenHash,
+        revokedAt: null,
+      },
+      include: {
+        user: {
+          include: {
+            activityEntries: {
+              take: 10,
+              orderBy: { timestamp: "desc" },
+            },
+            insights: {
+              take: 5,
+              orderBy: { createdAt: "desc" },
+            },
+            moods: {
+              take: 1,
+              orderBy: { timestamp: "desc" },
+            }
+          }
+        },
+      },
+    });
+
+    if (!extensionToken) {
+      return res.status(401).json({ error: "Invalid extension token" });
+    }
+
+    const user = extensionToken.user;
+    
+    // Simple wellness score logic
+    let wellnessScore = 85; 
+    const recentMood = user.moods[0]?.moodValue || 3;
+    wellnessScore += (recentMood - 3) * 5;
+
+    res.json({
+      userName: user.displayName || "User",
+      wellnessScore: Math.min(100, Math.max(0, wellnessScore)),
+      activities: user.activityEntries.map(a => ({
+        type: a.type,
+        title: a.title,
+        duration: a.duration,
+        timestamp: a.timestamp.toISOString(),
+      })),
+      insights: user.insights.map(i => ({
+        type: i.type,
+        title: i.title,
+        content: i.content,
+        createdAt: i.createdAt.toISOString(),
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching extension stats:", error);
+    res.status(500).json({ error: "Failed to fetch stats" });
   }
 });
 
@@ -176,5 +240,79 @@ extensionRouter.post("/events/batch", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error ingesting extension events:", error);
     res.status(500).json({ error: "Failed to ingest extension events" });
+  }
+});
+
+// GET /extension/devices - List all paired devices for authenticated user
+extensionRouter.get("/devices", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { clerkId: req.clerkUserId! },
+      include: {
+        extensionTokens: {
+          where: { revokedAt: null },
+          select: {
+            id: true,
+            deviceName: true,
+            createdAt: true,
+            lastUsedAt: true,
+          },
+          orderBy: { lastUsedAt: "desc" },
+        },
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const devices = user.extensionTokens.map((token) => ({
+      id: token.id,
+      name: token.deviceName || "Unknown Device",
+      pairedAt: token.createdAt.toISOString(),
+      lastSyncAt: token.lastUsedAt?.toISOString() || null,
+      isActive: token.lastUsedAt ? new Date().getTime() - token.lastUsedAt.getTime() < 3600000 : false,
+    }));
+
+    res.json({ devices });
+  } catch (error) {
+    console.error("Error fetching devices:", error);
+    res.status(500).json({ error: "Failed to fetch devices" });
+  }
+});
+
+// DELETE /extension/devices/:deviceId - Unpair and revoke a device
+extensionRouter.delete("/devices/:deviceId", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { deviceId } = req.params;
+
+    const user = await prisma.user.findUnique({
+      where: { clerkId: req.clerkUserId! },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const token = await prisma.extensionToken.findFirst({
+      where: {
+        id: deviceId,
+        userId: user.id,
+      },
+    });
+
+    if (!token) {
+      return res.status(404).json({ error: "Device not found" });
+    }
+
+    await prisma.extensionToken.update({
+      where: { id: deviceId },
+      data: { revokedAt: new Date() },
+    });
+
+    res.json({ success: true, message: "Device unpaired successfully" });
+  } catch (error) {
+    console.error("Error unpairing device:", error);
+    res.status(500).json({ error: "Failed to unpair device" });
   }
 });
