@@ -16,6 +16,9 @@ function escHtml(str) {
     return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+// ── Configuration ──
+const API_BASE_URL = "https://mindrift.onrender.com";
+
 // ── Date header ──
 document.getElementById("header-date").textContent =
     new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
@@ -146,8 +149,6 @@ chrome.storage.local.get(
         }
     }
 );
-
-const API_BASE_URL = "http://localhost:3001";
 
 // ── Check if paired and toggle UI ──
 chrome.storage.local.get(["mindrift_auth_token"], (data) => {

@@ -14,7 +14,8 @@
     ],
     "host_permissions": [
         "http://localhost:3000/*",
-        "http://localhost:3001/*"
+        "http://localhost:3001/*",
+        "https://mindrift.onrender.com/*"
     ],
     "background": {
         "service_worker": "background.js"

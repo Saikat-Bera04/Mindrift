@@ -1,7 +1,7 @@
 // background.js - Real-time browsing tracker connected to Mindrift API
 
 // ─── Configuration ──────────────────────────────────────────────
-const API_BASE_URL = "http://localhost:3001";
+const API_BASE_URL = "https://mindrift.onrender.com";
 const SYNC_INTERVAL_MINUTES = 60;
 
 const sessionStart = Date.now();

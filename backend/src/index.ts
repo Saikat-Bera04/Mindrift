@@ -10,6 +10,7 @@ import { usersRouter } from "./routes/users.js";
 import { extensionRouter } from "./routes/extension.js";
 import { activityRouter } from "./routes/activity.js";
 import { voiceRouter } from "./routes/voice.js";
+import { stressRouter } from "./routes/stress.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { clerkMiddleware } from "./middleware/clerk.js";
 import { createGeneralLimiter } from "./middleware/rateLimiter.js";
@@ -89,6 +90,7 @@ app.use("/insights", insightsRouter);
 app.use("/extension", extensionRouter);
 app.use("/activity", activityRouter);
 app.use("/voice", voiceRouter);
+app.use("/stress", stressRouter);
 
 app.use(errorHandler);
 
