@@ -38,9 +38,9 @@ export interface Voice {
 /**
  * Get available voices from Sarvam AI
  */
-export async function getVoices(): Promise<Voice[]> {
+export async function getVoices(token?: string | null): Promise<Voice[]> {
   const response = await fetch(`${API_BASE}/voices`, {
-    credentials: "include",
+    headers: token ? { "Authorization": `Bearer ${token}` } : {},
   });
 
   if (!response.ok) {
@@ -56,12 +56,15 @@ export async function getVoices(): Promise<Voice[]> {
  */
 export async function speechToText(
   audioBase64: string,
-  languageCode = "en-IN"
+  languageCode = "en-IN",
+  token?: string | null
 ): Promise<STTResponse> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   const response = await fetch(`${API_BASE}/stt`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
+    headers,
     body: JSON.stringify({ audioBase64, languageCode }),
   });
 
@@ -79,12 +82,15 @@ export async function speechToText(
 export async function textToSpeech(
   text: string,
   languageCode = "en-IN",
-  voice = "meera"
+  voice = "meera",
+  token?: string | null
 ): Promise<TTSResponse> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   const response = await fetch(`${API_BASE}/tts`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
+    headers,
     body: JSON.stringify({ text, languageCode, voice }),
   });
 
@@ -103,12 +109,15 @@ export async function voiceChat(
   audioBase64: string,
   languageCode = "en-IN",
   voice = "meera",
-  conversationHistory: Array<{ role: string; content: string }> = []
+  conversationHistory: Array<{ role: string; content: string }> = [],
+  token?: string | null
 ): Promise<VoiceChatResponse> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   const response = await fetch(`${API_BASE}/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
+    headers,
     body: JSON.stringify({
       audioBase64,
       languageCode,

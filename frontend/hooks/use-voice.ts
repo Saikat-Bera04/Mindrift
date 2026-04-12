@@ -9,6 +9,7 @@ import {
   playAudio,
   type VoiceChatResponse,
 } from "@/lib/voice-service";
+import { useAuth } from "@clerk/nextjs";
 
 export type VoiceStatus =
   | "idle"
@@ -43,6 +44,7 @@ export function useVoice(options: UseVoiceOptions = {}) {
   const audioChunksRef = useRef<Blob[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const conversationHistoryRef = useRef<Array<{ role: string; content: string }>>([]);
+  const { getToken } = useAuth();
 
   // Check for browser support
   useEffect(() => {
@@ -85,12 +87,14 @@ export function useVoice(options: UseVoiceOptions = {}) {
           const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
           const audioBase64 = await audioBlobToBase64(audioBlob);
 
+          const token = await getToken();
           // Call voice chat API (STT -> AI -> TTS)
           const result: VoiceChatResponse = await voiceChat(
             audioBase64,
             languageCode,
             voice,
-            conversationHistoryRef.current
+            conversationHistoryRef.current,
+            token
           );
 
           if (!result.success) {
