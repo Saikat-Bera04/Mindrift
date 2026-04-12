@@ -104,7 +104,7 @@ export function DashboardSidebar() {
           </div>
           {!collapsed && (
             <span className="text-xl font-bold tracking-tight text-foreground" style={{ textShadow: "0 1px 1px #ffffff" }}>
-              AURA
+              Diva
             </span>
           )}
           <button

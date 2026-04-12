@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND_ORIGIN = "http://localhost:3001";
+const DEFAULT_BACKEND_ORIGIN = "http://127.0.0.1:3001";
 
 /** Public Express API origin. */
 export function getBackendOrigin(): string {

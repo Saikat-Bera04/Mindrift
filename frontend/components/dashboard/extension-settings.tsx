@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { Copy, Check, RotateCcw, Unlink } from "lucide-react";
-import { useAuth } from "@clerk/nextjs";
 
 interface PairingCode {
   code: string;
@@ -24,23 +23,16 @@ export function ExtensionSettings() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
-  const { getToken } = useAuth();
 
-  const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+  const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "https://mindrift.onrender.com";
 
   // Fetch pairing code
   async function generatePairingCode() {
     setLoading(true);
     try {
-      const token = await getToken();
-      if (!token) throw new Error("Not authenticated");
-
       const response = await fetch(`${API_BASE}/extension/pairing-codes`, {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) throw new Error("Failed to generate code");
@@ -69,14 +61,7 @@ export function ExtensionSettings() {
   // Fetch paired devices
   async function fetchDevices() {
     try {
-      const token = await getToken();
-      if (!token) return;
-
-      const response = await fetch(`${API_BASE}/extension/devices`, {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
+      const response = await fetch(`${API_BASE}/extension/devices`);
       if (!response.ok) throw new Error("Failed to fetch devices");
 
       const data = await response.json();
@@ -91,14 +76,8 @@ export function ExtensionSettings() {
     if (!confirm("Remove this paired device?")) return;
 
     try {
-      const token = await getToken();
-      if (!token) return;
-
       const response = await fetch(`${API_BASE}/extension/devices/${deviceId}`, {
         method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
       });
 
       if (!response.ok) throw new Error("Failed to unpair device");
@@ -112,7 +91,7 @@ export function ExtensionSettings() {
 
   useEffect(() => {
     fetchDevices();
-  }, [getToken]);
+  }, []);
 
   const isExpired = pairingCode
     ? new Date(pairingCode.expiresAt) < new Date()

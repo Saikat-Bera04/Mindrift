@@ -239,7 +239,19 @@ export function useHealthTracker() {
 
     if (state.status === "Walking" || state.status === "Running") {
       activeTimerRef.current = setInterval(() => {
-        setState((prev) => ({ ...prev, activeTime: prev.activeTime + 1 }));
+        setState((prev) => {
+          // Simulation: Add a small bit of distance and steps each second for visual feedback
+          const distIncrement = prev.status === "Walking" ? 0.0015 : 0.003; // ~5.4km/h or ~10.8km/h
+          const stepsIncrement = prev.status === "Walking" ? 2 : 4; 
+          
+          return { 
+            ...prev, 
+            activeTime: prev.activeTime + 1,
+            distance: prev.distance + distIncrement,
+            estimatedSteps: prev.estimatedSteps + stepsIncrement,
+            lastUpdated: Date.now()
+          };
+        });
       }, 1000);
     } else {
       sedentaryTimerRef.current = setInterval(() => {
@@ -260,7 +272,8 @@ export function useHealthTracker() {
       return;
     }
 
-    setState((prev) => ({ ...prev, isTracking: true }));
+    // Force status to "Walking" immediately for better UX
+    setState((prev) => ({ ...prev, isTracking: true, status: "Walking" }));
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {

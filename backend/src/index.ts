@@ -41,6 +41,8 @@ app.use(
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:3002",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
         "https://mindrift.vercel.app",
         "https://www.mindrift.vercel.app",
       ];
@@ -69,7 +71,7 @@ app.use(
   }),
 );
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(createGeneralLimiter());
 
