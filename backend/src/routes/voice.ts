@@ -178,10 +178,8 @@ voiceRouter.post("/chat", requireAuth, async (req: Request, res: Response) => {
         // Build conversation context for Gemini
         const systemPrompt = "You are Aura, a compassionate mental wellness AI companion. Provide supportive, empathetic responses. Keep responses concise (2-3 sentences) for voice interaction.";
         
-        // Convert conversation history to Gemini format
+        // Convert conversation history to Gemini format (proper format with system instruction)
         const geminiContents = [
-          { role: "user", parts: [{ text: systemPrompt }] },
-          { role: "model", parts: [{ text: "I understand. I'm Aura, here to provide compassionate support for your mental wellness journey." }] },
           ...conversationHistory.flatMap((msg: any) => [
             { role: msg.role === "assistant" ? "model" : "user", parts: [{ text: msg.content }] }
           ]),
@@ -194,6 +192,9 @@ voiceRouter.post("/chat", requireAuth, async (req: Request, res: Response) => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              systemInstruction: {
+                parts: [{ text: systemPrompt }],
+              },
               contents: geminiContents,
               generationConfig: {
                 maxOutputTokens: 150,
@@ -206,9 +207,13 @@ voiceRouter.post("/chat", requireAuth, async (req: Request, res: Response) => {
         if (geminiResponse.ok) {
           const geminiData = await geminiResponse.json();
           aiResponse = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (!aiResponse.trim()) {
+            console.warn("Empty response from Gemini API");
+          }
         } else {
           const errorText = await geminiResponse.text();
           console.error("Gemini API error:", errorText);
+          throw new Error(`Gemini API error: ${errorText}`);
         }
       } catch (aiError) {
         console.error("AI response error:", aiError);
