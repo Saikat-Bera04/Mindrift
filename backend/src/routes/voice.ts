@@ -5,6 +5,22 @@ export const voiceRouter = Router();
 
 const SARVAM_API_BASE = "https://api.sarvam.ai";
 
+// GET /voice/health - Health check for Sarvam API
+voiceRouter.get("/health", (_req: Request, res: Response) => {
+  const apiKey = process.env.SARVAM_API_KEY;
+  res.json({
+    status: "ok",
+    sarvam: {
+      configured: !!apiKey,
+      keyLength: apiKey?.length || 0,
+    },
+    gemini: {
+      configured: !!process.env.GEMINI_API_KEY,
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // POST /voice/stt - Speech to Text using Sarvam AI
 voiceRouter.post("/stt", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -19,6 +35,18 @@ voiceRouter.post("/stt", requireAuth, async (req: Request, res: Response) => {
       return res.status(500).json({ error: "Sarvam API key not configured" });
     }
 
+    // Validate and clean base64
+    if (!audioBase64 || typeof audioBase64 !== "string") {
+      return res.status(400).json({ error: "Invalid audioBase64 format" });
+    }
+
+    const cleanBase64 = audioBase64.replace(/^data:audio\/[\w.-]+;(?:codecs=[^;]+;)?base64,/, "");
+    
+    // Normalize language code (Sarvam might use different format)
+    const normalizedLanguageCode = languageCode.split("-")[0] || "en";
+
+    console.log(`STT request: language=${normalizedLanguageCode}, audio_size=${cleanBase64.length} bytes`);
+
     const response = await fetch(`${SARVAM_API_BASE}/speech-to-text`, {
       method: "POST",
       headers: {
@@ -26,18 +54,20 @@ voiceRouter.post("/stt", requireAuth, async (req: Request, res: Response) => {
         "API-Subscription-Key": apiKey,
       },
       body: JSON.stringify({
-        audio: audioBase64,
-        language_code: languageCode,
-        model: "saarika:v2", // Sarvam's STT model
+        audio: cleanBase64,
+        language_code: normalizedLanguageCode,
+        model: "saarika:v2",
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Sarvam STT error:", errorText);
+      const statusCode = response.status;
+      console.error(`Sarvam STT error (${statusCode}):`, errorText);
       return res.status(response.status).json({ 
         error: "STT processing failed", 
-        details: errorText 
+        status: statusCode,
+        details: errorText.substring(0, 500) // Limit error text
       });
     }
 
@@ -49,7 +79,10 @@ voiceRouter.post("/stt", requireAuth, async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Error in STT:", error);
-    res.status(500).json({ error: "Failed to process speech-to-text" });
+    res.status(500).json({ 
+      error: "Failed to process speech-to-text",
+      details: error instanceof Error ? error.message : "Unknown error"
+    });
   }
 });
 
@@ -67,6 +100,10 @@ voiceRouter.post("/tts", requireAuth, async (req: Request, res: Response) => {
       return res.status(500).json({ error: "Sarvam API key not configured" });
     }
 
+    const normalizedLanguageCode = languageCode.split("-")[0] || "en";
+
+    console.log(`TTS request: text_length=${text.length}, voice=${voice}, language=${normalizedLanguageCode}`);
+
     const response = await fetch(`${SARVAM_API_BASE}/text-to-speech`, {
       method: "POST",
       headers: {
@@ -75,8 +112,8 @@ voiceRouter.post("/tts", requireAuth, async (req: Request, res: Response) => {
       },
       body: JSON.stringify({
         text,
-        target_language_code: languageCode,
-        speaker: voice, // Available voices: meera, pavithra, mukesh, arjun, arvind, amol, amartya, diya
+        target_language_code: normalizedLanguageCode,
+        speaker: voice,
         pitch: 0,
         pace: 1.0,
         loudness: 1.0,
@@ -88,10 +125,12 @@ voiceRouter.post("/tts", requireAuth, async (req: Request, res: Response) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Sarvam TTS error:", errorText);
+      const statusCode = response.status;
+      console.error(`Sarvam TTS error (${statusCode}):`, errorText);
       return res.status(response.status).json({ 
         error: "TTS processing failed", 
-        details: errorText 
+        status: statusCode,
+        details: errorText.substring(0, 500)
       });
     }
 
@@ -107,7 +146,10 @@ voiceRouter.post("/tts", requireAuth, async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Error in TTS:", error);
-    res.status(500).json({ error: "Failed to process text-to-speech" });
+    res.status(500).json({ 
+      error: "Failed to process text-to-speech",
+      details: error instanceof Error ? error.message : "Unknown error"
+    });
   }
 });
 
@@ -142,6 +184,9 @@ voiceRouter.post("/chat", requireAuth, async (req: Request, res: Response) => {
       return res.status(500).json({ error: "Sarvam API key not configured" });
     }
 
+    const cleanBase64 = audioBase64.replace(/^data:audio\/[\w.-]+;(?:codecs=[^;]+;)?base64,/, "");
+    const normalizedLanguageCode = languageCode.split("-")[0] || "en";
+
     // Step 1: Convert speech to text
     const sttResponse = await fetch(`${SARVAM_API_BASE}/speech-to-text`, {
       method: "POST",
@@ -150,8 +195,8 @@ voiceRouter.post("/chat", requireAuth, async (req: Request, res: Response) => {
         "API-Subscription-Key": apiKey,
       },
       body: JSON.stringify({
-        audio: audioBase64,
-        language_code: languageCode,
+        audio: cleanBase64,
+        language_code: normalizedLanguageCode,
         model: "saarika:v2",
       }),
     });
@@ -234,7 +279,7 @@ voiceRouter.post("/chat", requireAuth, async (req: Request, res: Response) => {
       },
       body: JSON.stringify({
         text: aiResponse,
-        target_language_code: languageCode,
+        target_language_code: normalizedLanguageCode,
         speaker: voice,
         pitch: 0,
         pace: 1.0,
