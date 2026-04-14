@@ -19,21 +19,27 @@ export async function segregateBrowserHistory(events: any[]) {
 
   const prompt = `
 You are an AI wellness and productivity assistant. 
-Review the following raw extension events (tab switches, session starts, session ends, idle periods) from a user's recent browser activity over the last 1 hour.
+Review the following raw extension events from a user's recent browser activity over the last 1 hour.
 
 Raw Data Summary:
 ${JSON.stringify(eventsSummary, null, 2)}
 
-Your task is to segregate and summarize these into cohesive "Activity" logs AND generate "Insights" or recommendations based on behavioral patterns (e.g. telling them they've been working efficiently but should take breaks).
+Your task is to segregate and summarize these into cohesive "Activity" logs AND generate "Insights".
+Specifically, identify patterns such as:
+1. **Academic/Study**: Research, educational sites, university portals.
+2. **Stress-Inducing**: Excessive news, high-pressure work, social media arguments.
+3. **Sadness/Low Mood**: Somber music, searching for mental health resources, doomscrolling.
+4. **Productivity**: Coding, writing, specialized tools.
+5. **Relaxation**: Games, light entertainment, mindfulness apps.
 
 Generate ONLY a valid JSON object with exact keys:
 {
   "activities": [
     {
-      "type": "productivity" | "entertainment" | "education" | "social" | "health" | "other",
+      "type": "productivity" | "entertainment" | "education" | "social" | "health" | "stress" | "sad" | "other",
       "title": "Short descriptive title of the session",
       "duration": number (estimated minutes),
-      "notes": "A brief objective summary.",
+      "notes": "A brief objective summary exploring the user's focus and probable emotional state.",
       "intensity": "low" | "medium" | "high"
     }
   ],

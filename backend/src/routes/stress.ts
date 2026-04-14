@@ -95,11 +95,36 @@ async function gatherUserData(userId: string) {
 function calculateMetrics(data: Awaited<ReturnType<typeof gatherUserData>>) {
   const { moods, healthMetrics, activities, browserEvents, gamification, user } = data;
 
-  // Sleep analysis
+  // 1. Manual sleep metrics
   const sleepMetrics = healthMetrics.filter(m => m.metricType === "sleep");
-  const avgSleep = sleepMetrics.length > 0 
+  const manualAvgSleep = sleepMetrics.length > 0 
     ? sleepMetrics.reduce((sum, m) => sum + m.value, 0) / sleepMetrics.length 
     : user?.sleepHours || 7;
+
+  // 2. Automated sleep estimation from browser gaps (idle time)
+  // Identify gaps of > 5 hours between 10 PM and 10 AM
+  const gaps: number[] = [];
+  const nightEvents = browserEvents.filter(e => {
+    const hour = new Date(e.occurredAt).getHours();
+    return hour >= 22 || hour <= 10;
+  }).sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime());
+
+  for (let i = 0; i < nightEvents.length - 1; i++) {
+    const start = new Date(nightEvents[i].occurredAt).getTime();
+    const end = new Date(nightEvents[i+1].occurredAt).getTime();
+    const diffHours = (end - start) / (1000 * 60 * 60);
+    if (diffHours >= 5 && diffHours <= 12) {
+      gaps.push(diffHours);
+    }
+  }
+
+  const estimatedAvgSleep = gaps.length > 0 
+    ? gaps.reduce((a, b) => a + b, 0) / gaps.length 
+    : manualAvgSleep;
+
+  // Combine manual and estimated (weighted towards manual if available)
+  const avgSleep = sleepMetrics.length > 0 ? manualAvgSleep : estimatedAvgSleep;
+
   const sleepConsistency = sleepMetrics.length > 1
     ? Math.sqrt(sleepMetrics.reduce((sum, m) => sum + Math.pow(m.value - avgSleep, 2), 0) / sleepMetrics.length)
     : 1;
@@ -117,22 +142,11 @@ function calculateMetrics(data: Awaited<ReturnType<typeof gatherUserData>>) {
     ? moods.reduce((sum, m) => sum + Math.pow(m.moodValue - avgMood, 2), 0) / moods.length
     : 0;
 
-  // Digital wellness analysis
-  const socialMediaEvents = browserEvents.filter(e => 
-    e.category === "social" || 
-    e.type.includes("social") ||
-    (e.payload as any)?.domain?.includes("facebook") ||
-    (e.payload as any)?.domain?.includes("instagram") ||
-    (e.payload as any)?.domain?.includes("twitter") ||
-    (e.payload as any)?.domain?.includes("tiktok")
-  );
-  
-  const workEvents = browserEvents.filter(e =>
-    e.category === "work" ||
-    (e.payload as any)?.domain?.includes("docs.google") ||
-    (e.payload as any)?.domain?.includes("github") ||
-    (e.payload as any)?.domain?.includes("stackoverflow")
-  );
+  // Digital wellness analysis (Emotional Segregation)
+  const socialEvents = browserEvents.filter(e => e.type === "social" || (e.payload as any)?.category === "social");
+  const stressEvents = browserEvents.filter(e => e.type === "stress" || (e.payload as any)?.category === "stress");
+  const sadEvents = browserEvents.filter(e => e.type === "sad" || (e.payload as any)?.category === "sad");
+  const studyEvents = browserEvents.filter(e => e.type === "education" || (e.payload as any)?.category === "education");
 
   // Screen time estimation (from browser events)
   const screenTimeEstimate = browserEvents.length * 5; // Rough estimate: 5 mins per event
@@ -140,6 +154,7 @@ function calculateMetrics(data: Awaited<ReturnType<typeof gatherUserData>>) {
   return {
     sleep: {
       average: avgSleep,
+      estimated: gaps.length > 0,
       consistency: sleepConsistency,
       entries: sleepMetrics.length,
       quality: avgSleep >= 7 && sleepConsistency < 1 ? "good" : avgSleep >= 6 ? "fair" : "poor",
@@ -153,12 +168,17 @@ function calculateMetrics(data: Awaited<ReturnType<typeof gatherUserData>>) {
       averageMood: avgMood,
       moodStability: Math.sqrt(moodVariance),
       totalEntries: moods.length,
+      signals: {
+        stress: stressEvents.length,
+        sadness: sadEvents.length,
+        study: studyEvents.length,
+      }
     },
     digital: {
-      socialMediaSessions: socialMediaEvents.length,
-      workSessions: workEvents.length,
+      socialMediaSessions: socialEvents.length,
+      highStressSessions: stressEvents.length,
       estimatedScreenTime: screenTimeEstimate,
-      digitalBalance: workEvents.length > socialMediaEvents.length * 2 ? "good" : "concerning",
+      digitalBalance: studyEvents.length > socialEvents.length ? "good" : "distracted",
     },
     engagement: {
       streak: gamification?.streak || 0,
@@ -190,39 +210,34 @@ async function generateStressAnalysisWithGemini(
 You are a mental health AI assistant. Analyze the following user's wellness data from the last 30 days and calculate their stress level.
 
 USER DATA SUMMARY:
-- Sleep: ${metrics.sleep.average.toFixed(1)} hours/night (quality: ${metrics.sleep.quality}, consistency: ${metrics.sleep.consistency.toFixed(2)})
+- Sleep: ${metrics.sleep.average.toFixed(1)} hours/night (${metrics.sleep.estimated ? 'ESTIMATED from screen-off time' : 'MANUAL entry'}, quality: ${metrics.sleep.quality})
 - Physical Activity: ${metrics.physical.weeklyExerciseMinutes.toFixed(0)} minutes/week, ${metrics.physical.totalActivities} activities total
-- Mood: Average ${metrics.emotional.averageMood.toFixed(1)}/5 (1=very low, 5=excellent), stability: ${metrics.emotional.moodStability.toFixed(2)}
-- Digital Habits: ${metrics.digital.socialMediaSessions} social media sessions, ${metrics.digital.workSessions} work sessions, ~${metrics.digital.estimatedScreenTime} min estimated screen time
+- Mood: Average ${metrics.emotional.averageMood.toFixed(1)}/5, signals: ${metrics.emotional.signals.stress} stress-related browsing, ${metrics.emotional.signals.sadness} sadness-related browsing, ${metrics.emotional.signals.study} study sessions.
+- Digital Habits: ${metrics.digital.socialMediaSessions} social media sessions, ~${metrics.digital.estimatedScreenTime} min total estimated screen time.
 - Engagement: ${metrics.engagement.streak} day streak, Level ${metrics.engagement.level}
-- Profile: Works ${metrics.profile.workingHours}h/day, sleeps ${metrics.profile.sleepHours}h
 
 STRESS FACTORS TO CONSIDER:
-1. Sleep deprivation (less than 7 hours = higher stress)
-2. Lack of physical activity (less than 150 min/week = higher stress)
-3. Low mood scores (below 3/5 = higher stress)
-4. High screen time/social media use = higher stress
-5. Irregular sleep patterns = higher stress
-6. Mood instability = higher stress
+1. Sleep patterns: ${metrics.sleep.average < 7 ? 'DEPRIVED' : 'ADEQUATE'}. ${metrics.sleep.estimated ? 'Based on screen activity.' : ''}
+2. Physical activity: ${metrics.physical.weeklyExerciseMinutes < 150 ? 'INSUFFICIENT' : 'GOOD'}.
+3. Browser behavioral segregation:
+   - Study focus: ${metrics.emotional.signals.study} sessions.
+   - Stress/Anxiety signals: ${metrics.emotional.signals.stress} sessions.
+   - Sadness signals: ${metrics.emotional.signals.sadness} sessions.
+4. Social media vs Productivity balance.
 
-Calculate a stress score from 0-10 where:
-- 0-3: Low stress (excellent wellness)
-- 4-5: Moderate stress (manageable)
-- 6-7: High stress (needs attention)
-- 8-10: Very high stress (immediate intervention recommended)
-
+Calculate a combined stress score from 0-10.
 Respond ONLY in this JSON format:
 {
   "stressLevel": number,
   "confidence": number,
   "factors": {
-    "sleep": { "score": 0-10, "impact": "high|medium|low", "details": "explanation" },
-    "physical": { "score": 0-10, "impact": "high|medium|low", "details": "explanation" },
-    "digital": { "score": 0-10, "impact": "high|medium|low", "details": "explanation" },
-    "emotional": { "score": 0-10, "impact": "high|medium|low", "details": "explanation" }
+    "sleep": { "score": 0-10, "impact": "high|medium|low", "details": "specific explanation" },
+    "physical": { "score": 0-10, "impact": "high|medium|low", "details": "specific explanation" },
+    "digital": { "score": 0-10, "impact": "high|medium|low", "details": "specific explanation of browser history segregation (study vs stress vs sad)" },
+    "emotional": { "score": 0-10, "impact": "high|medium|low", "details": "mood and behavioral signals" }
   },
   "recommendations": ["3-4 specific actionable tips"],
-  "motivationalTip": "An encouraging, empathetic message (1-2 sentences)",
+  "motivationalTip": "Empathetic message",
   "trend": "improving|stable|declining|unknown"
 }
 `;
