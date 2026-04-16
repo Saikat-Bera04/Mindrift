@@ -82,7 +82,7 @@ export async function speechToText(
 export async function textToSpeech(
   text: string,
   languageCode = "en-IN",
-  voice = "EXAVITQu4vr4xnSDxMaL",
+  voice = "21m00Tcm4TlvDq8ikWAM",
   token?: string | null
 ): Promise<TTSResponse> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -108,7 +108,7 @@ export async function textToSpeech(
 export async function voiceChat(
   audioBase64: string,
   languageCode = "en-IN",
-  voice = "EXAVITQu4vr4xnSDxMaL",
+  voice = "21m00Tcm4TlvDq8ikWAM",
   conversationHistory: Array<{ role: string; content: string }> = [],
   token?: string | null
 ): Promise<VoiceChatResponse> {

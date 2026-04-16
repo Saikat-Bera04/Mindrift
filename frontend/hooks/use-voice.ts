@@ -32,7 +32,7 @@ export interface UseVoiceOptions {
 }
 
 export function useVoice(options: UseVoiceOptions = {}) {
-  const { languageCode = "en-IN", voice = "EXAVITQu4vr4xnSDxMaL", onError } = options;
+  const { languageCode = "en-IN", voice = "21m00Tcm4TlvDq8ikWAM", onError } = options;
 
   const [status, setStatus] = useState<VoiceStatus>("idle");
   const [messages, setMessages] = useState<VoiceMessage[]>([]);

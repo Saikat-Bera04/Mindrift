@@ -7,7 +7,7 @@ export const voiceRouter = Router();
 // Helper to convert readable stream to base64
 async function streamToBase64(stream: any): Promise<string> {
   try {
-    const chunks: Buffer[] = [];
+    const chunks = [];
     
     // Check if it's an async iterable
     if (Symbol.asyncIterator in stream) {
@@ -129,7 +129,7 @@ voiceRouter.post("/tts", requireAuth, async (req: Request, res: Response) => {
 // GET /voice/voices - Get available ElevenLabs voices
 voiceRouter.get("/voices", requireAuth, (_req: Request, res: Response) => {
   const voices = [
-    { id: process.env.ELEVEN_LABS_VOICE_ID || "EXAVITQu4vr4xnSDxMaL", name: "Mindrift Main", language: "multi", gender: "female", description: "Clear and supportive" },
+    { id: process.env.ELEVEN_LABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb", name: "Mindrift Main", language: "multi", gender: "female", description: "Clear and supportive" },
     { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", language: "multi", gender: "female", description: "Warm and professional" },
     { id: "AZnzlk1XhxPQCnBd8qnA", name: "Nicole", language: "multi", gender: "female", description: "Friendly and approachable" },
     { id: "EXAVITQu4vr4xnSDxMaL", name: "Bella", language: "multi", gender: "female", description: "Soft and calm" },
@@ -143,7 +143,7 @@ voiceRouter.get("/voices", requireAuth, (_req: Request, res: Response) => {
 // POST /voice/chat - Full voice conversation with Gemini AI
 voiceRouter.post("/chat", requireAuth, async (req: Request, res: Response) => {
   try {
-    const { audioBase64, languageCode = "en-IN", voice = "EXAVITQu4vr4xnSDxMaL", conversationHistory = [] } = req.body;
+    const { audioBase64, languageCode = "en-IN", voice = "21m00Tcm4TlvDq8ikWAM", conversationHistory = [] } = req.body;
 
     if (!audioBase64) {
       return res.status(400).json({ error: "audioBase64 is required" });

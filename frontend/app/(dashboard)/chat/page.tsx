@@ -19,7 +19,7 @@ export default function VoiceCompanionPage() {
     cancelSpeaking 
   } = useVoice({
     languageCode: "en-IN",
-    voice: "EXAVITQu4vr4xnSDxMaL",
+    voice: "21m00Tcm4TlvDq8ikWAM",
     onError: (err) => console.error("Voice error:", err),
   });
   
