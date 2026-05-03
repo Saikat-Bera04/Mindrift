@@ -1,8 +1,7 @@
 # Mindrift
 
-Mindrift is a full-stack mental wellness platform that helps users understand mood, stress, sleep, activity, and digital behavior patterns. It includes a Next.js web app, an Express API, a PostgreSQL database managed with Prisma, and a Chrome extension that tracks browser activity signals such as screen time, tab switching, idle breaks, browsing categories, searches, and YouTube activity. The goal is to turn small daily check-ins and passive behavior signals into clearer wellness insights, stress alerts, and gentle self-care guidance.
+Mindrift is a developer-focused mental wellness platform designed to turn everyday coding behavior into meaningful self-awareness. Built as a full-stack system with a Next.js web app, Express API, and PostgreSQL (Prisma), it integrates seamlessly with both a Chrome extension and a VS Code extension to capture real-time behavioral signals such as screen time, tab switching, coding sessions, focus duration, idle breaks, search patterns, and tool usage. Instead of relying only on manual input, Mindrift combines passive developer activity with quick mood check-ins to generate personalized insights, stress signals, productivity rhythms, and burnout indicators. The platform presents this data through a clean dashboard with wellness gauges, habit tracking, AI-driven reflections, and gentle nudges tailored specifically for developers. Mindrift is not a diagnostic tool—it’s a reflection system that helps developers understand how they work, recognize early signs of stress or fatigue, and build healthier, more sustainable coding habits.
 
-Mindrift is built for reflection and prevention, not medical diagnosis. Users can log moods, view wellness gauges, track habits, use an AI companion, manage stress, review insights, pair a browser extension, and access support-oriented resources from one dashboard.
 
 ## Tech Stack
 
